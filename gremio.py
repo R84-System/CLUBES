@@ -27,8 +27,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 3. URL estável do escudo oficial do Grêmio em alta resolução
-url_gremio = "https://images.api-football.com/teams/130.png"
+# 3. URL ULTRA-ESTÁVEL DA WIKIPÉDIA (Escudo oficial em alta resolução)
+url_gremio = "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f1/Gremio_logo.svg/800px-Gremio_logo.svg.png"
 
 # 4. Projeta a imagem centralizada no meio do fundo preto
 st.image(url_gremio)
