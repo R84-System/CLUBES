@@ -2,18 +2,18 @@ import streamlit as st
 
 # 1. Configuração de Tela Cheia
 st.set_page_config(
-    page_title="K97 - Grêmio Neon", 
+    page_title="K97 - Imortal Led", 
     layout="wide", 
     initial_sidebar_state="collapsed"
 )
 
-# 2. Fiação CSS: Remove menus e cria o Efeito de Escudo Luminoso (Neon)
+# 2. Toda a estrutura do símbolo e do efeito Neon gerada por código puro
 st.markdown("""
     <style>
-        /* Esconde toda a poluição visual do Streamlit */
+        /* Esconde menus e cabeçalhos */
         #MainMenu, footer, header {visibility: hidden;}
         
-        /* Fundo Preto Absoluto e Centralização */
+        /* Fundo Preto Total e Centralização Absoluta */
         .stApp {
             background-color: #000000;
             display: flex;
@@ -21,29 +21,69 @@ st.markdown("""
             align-items: center;
             height: 100vh;
             overflow: hidden;
-        }
-        
-        /* O PULO DO GATO: Filtros de Brilho Neon (Cyan/Azul) */
-        .neon-shield {
-            max-height: 75vh;
-            width: auto;
-            filter: 
-                drop-shadow(0 0 10px #00a8ff) 
-                drop-shadow(0 0 30px #00a8ff) 
-                drop-shadow(0 0 60px #0055ff);
-            animation: pulse 3s infinite alternate;
+            margin: 0;
+            padding: 0;
         }
 
-        /* Animação opcional: Deixa o brilho "pulsando" levemente na tela */
+        /* Estrutura do Escudo Redondo em Código Puro */
+        .gremio-cyber-shield {
+            width: 320px;
+            height: 320px;
+            border-radius: 50%;
+            background: repeating-linear-gradient(
+                90deg,
+                #00a8ff 0px, #00a8ff 40px,   /* Azul Celeste */
+                #ffffff 40px, #ffffff 50px,   /* Listra Branca */
+                #000000 50px, #000000 90px,   /* Preto */
+                #ffffff 90px, #ffffff 100px   /* Listra Branca */
+            );
+            border: 8px solid #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            
+            /* Fiação do Efeito Luminoso de LED (Glow) */
+            box-shadow: 
+                0 0 20px #00a8ff,
+                0 0 40px #0055ff,
+                inset 0 0 20px rgba(255,255,255,0.5);
+            animation: pulse 2.5s infinite alternate;
+        }
+
+        /* Centro do escudo para dar profundidade */
+        .shield-center {
+            width: 180px;
+            height: 180px;
+            background-color: #000000;
+            border-radius: 50%;
+            border: 4px solid #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 15px #00a8ff;
+        }
+
+        /* Texto Centralizado */
+        .shield-text {
+            color: #ffffff;
+            font-family: 'Courier New', monospace;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px #ffffff, 0 0 20px #00a8ff;
+        }
+
+        /* Animação de pulsação da luz */
         @keyframes pulse {
-            0% { transform: scale(1); filter: drop-shadow(0 0 15px #00a8ff) drop-shadow(0 0 40px #0055ff); }
-            100% { transform: scale(1.02); filter: drop-shadow(0 0 25px #00a8ff) drop-shadow(0 0 70px #00a8ff); }
+            0% { transform: scale(1); box-shadow: 0 0 20px #00a8ff, 0 0 40px #0055ff; }
+            100% { transform: scale(1.03); box-shadow: 0 0 35px #00a8ff, 0 0 70px #00a8ff; }
         }
     </style>
+
+    <div class="gremio-cyber-shield">
+        <div class="shield-center">
+            <span class="shield-text">GREMIO</span>
+        </div>
+    </div>
 """, unsafe_allow_html=True)
-
-# 3. Escudo oficial com fundo transparente (essencial para o efeito funcionar)
-url_gremio_vetor = "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f1/Gremio_logo.svg/800px-Gremio_logo.svg.png"
-
-# 4. Injeta a imagem aplicando a classe do efeito luminoso
-st.markdown(f'<img src="{url_gremio_vetor}" class="neon-shield">', unsafe_allow_html=True)
