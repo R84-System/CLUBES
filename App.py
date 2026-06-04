@@ -3,7 +3,7 @@ import datetime
 import os
 from PIL import Image, ImageDraw
 
-# CONFIGURAÇÃO DA PÁGINA - FORÇA LARGURA MÁXIMA REAL
+# CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(
     page_title="Terminal K97 - Painel LED",
     layout="wide",
@@ -46,27 +46,23 @@ def gerar_imagem_led_matrix_local(nome_arquivo, tamanho_matriz=64):
         return None
 
 # ==========================================
-# ESTILIZAÇÃO CUSTOMIZADA (CSS) - CORREÇÃO DE EIXO CENTRAL
+# ESTILIZAÇÃO CUSTOMIZADA (CSS) - ALINHAMENTO DO ESCUDO
 # ==========================================
 st.markdown("""
     <style>
-    /* Estilos de Fundo e Reset de Margens */
     .stApp { background-color: #030712; }
     
-    /* Remove os paddings padrão do Streamlit para o letreiro encostar na ponta */
+    /* Prepara o container principal sem margens fantasmas */
     .block-container { padding-top: 1.5rem !important; padding-bottom: 0rem !important; padding-left: 0rem !important; padding-right: 0rem !important; max-width: 100% !important; }
-    
-    /* Cria o recuo apenas para a área do painel superior */
     .painel-wrapper { padding-left: 3rem; padding-right: 3rem; width: 100%; }
     
     h2, h3, label, .stMarkdown p { color: #E2E8F0 !important; font-family: 'Courier New', monospace; }
     
-    /* Força o alinhamento vertical exato das colunas do Streamlit */
     [data-testid="stHorizontalBlock"] {
         align-items: flex-end !important;
     }
     
-    /* CENTRALIZADOR DO ESCUDO (Garante que ele vá para a esquerda, pro centro real) */
+    /* CONTAINER DO ESCUDO COM DESLOCAMENTO CONTROLADO PARA A ESQUERDA */
     .shield-display-container {
         display: flex !important;
         justify-content: center !important;
@@ -74,15 +70,17 @@ st.markdown("""
         width: 100% !important;
         margin: 0 auto 15px auto;
     }
-    /* Força a imagem a ignorar margens fantasmas e centralizar */
+    
+    /* Alvo cirúrgico: empurra o elemento interno do Streamlit um pouco para a esquerda */
     .shield-display-container [data-testid="stImage"] {
-        margin: 0 auto !important;
         display: flex !important;
         justify-content: center !important;
+        margin: 0 auto !important;
+        transform: translateX(-18px) !important; /* Deslocamento milimétrico para centralizar com o texto */
     }
-    .shield-display-container img { max-width: 260px !important; width: 100% !important; height: auto !important; margin: 0 auto !important; }
+    .shield-display-container img { max-width: 260px !important; width: 100% !important; height: auto !important; }
     
-    /* LETREIRO DE LED INFERIOR (PONTA A PONTA REAL DA TELA) */
+    /* LETREIRO DE LED INFERIOR (PONTA A PONTA COMPLETO) */
     .led-ticker-edge-to-edge {
         width: 100vw !important;
         background-color: #000000; 
@@ -137,14 +135,14 @@ with st.sidebar:
     selected_club = st.radio("Disponíveis:", mock_clubs, label_visibility="collapsed")
 
 # ==========================================
-# EXECUÇÃO DO CONTEÚDO SUPERIOR
+# PAINEL DE CONTEÚDO SUPERIOR
 # ==========================================
 st.markdown('<div class="painel-wrapper">', unsafe_allow_html=True)
 
 arquivo_alvo = arquivos_escudos.get(selected_club)
 imagem_matriz = gerar_imagem_led_matrix_local(arquivo_alvo, tamanho_matriz=64)
 
-# Calibrado as proporções (1.3 nas pontas e 1.4 no centro) para encolher o meio e alinhar
+# Grid proporcional mantendo as laterais estáveis
 status_cols = st.columns([1.3, 1.4, 1.3])
 
 # COLUNA 1: Próximo Jogo (Esquerda)
@@ -153,7 +151,7 @@ with status_cols[0]:
     st.markdown("<p style='color: #FFFFFF; font-size: 15px; font-weight: bold; margin-bottom: 2px; text-align: left;'>COR vs FLA</p>", unsafe_allow_html=True)
     st.markdown("<p style='color: #00D2FF; font-size: 12px; text-align: left;'>Dom - 16:00</p>", unsafe_allow_html=True)
 
-# COLUNA 2: Centro Absoluto (Escudo Puxado para o Centro Real + Placar)
+# COLUNA 2: Centro Absoluto Alinhado
 with status_cols[1]:
     st.markdown('<div class="shield-display-container">', unsafe_allow_html=True)
     if imagem_matriz is not None:
@@ -162,6 +160,7 @@ with status_cols[1]:
         st.markdown(f'<div style="color: #FF9F00; font-family: monospace; font-size: 12px;">[ AGUARDANDO: {arquivo_alvo} ]</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     
+    # Textos perfeitamente alinhados abaixo do escudo centralizado
     st.markdown("<p style='color: #FF9F00; font-size: 11px; margin-bottom: 4px; text-align: center; font-weight: bold;'>• EM ANDAMENTO •</p>", unsafe_allow_html=True)
     st.markdown("<p style='color: #00D2FF; font-size: 26px; font-weight: bold; text-align: center; letter-spacing: 2px; margin-bottom: 4px;'>FLA 2 x 0 PAL</p>", unsafe_allow_html=True)
     st.markdown("<p style='color: #FF9F00; font-size: 12px; text-align: center;'>2º Tempo - 22'</p>", unsafe_allow_html=True)
