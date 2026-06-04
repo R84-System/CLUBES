@@ -8,7 +8,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ESTILIZAÇÃO CUSTOMIZADA (CSS) - Foco no Escudo e nova distribuição inferior
+# ESTILIZAÇÃO CUSTOMIZADA (CSS) - Letreiro LED Ampliado e Interface Limpa
 st.markdown("""
     <style>
     /* Fundo geral do terminal */
@@ -34,11 +34,11 @@ st.markdown("""
         box-shadow: 0 0 25px rgba(0, 102, 204, 0.2);
     }
     
-    /* Moldura da matriz de LED - Destaque Central Máximo */
+    /* Moldura da matriz de LED - Escudo Central */
     .led-matrix-frame {
         width: 100%;
-        max-width: 600px; /* Aumentado para dar mais destaque */
-        height: 420px; /* Aumentado para dar mais destaque */
+        max-width: 600px;
+        height: 420px;
         background-color: #010409;
         border: 3px solid #134074;
         border-radius: 12px;
@@ -61,31 +61,33 @@ st.markdown("""
         width: 100%;
         max-width: 600px;
         font-family: 'Courier New', monospace;
-        margin-bottom: 20px;
+        margin-bottom: 25px;
     }
     
-    /* LETREIRO DE LED FÍSICO NO RODAPÉ */
+    /* ================================================================= */
+    /* TICKER AMPLIADO: LETREIRO DE LED EM MATRIZ DE PONTOS (GIGANTE)   */
+    /* ================================================================= */
     .led-ticker-container {
         width: 100%;
         overflow: hidden;
-        background-color: #000000;
-        border: 3px solid #134074;
-        border-radius: 4px;
-        padding: 12px 0;
-        margin-top: 10px;
+        background-color: #000000; 
+        border: 4px solid #134074; /* Moldura mais espessa */
+        border-radius: 6px;
+        padding: 20px 0; /* Aumentado para dar altura ao bloco */
+        margin-top: 15px;
         position: relative;
-        box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
+        box-shadow: 0 0 25px rgba(0, 210, 255, 0.5);
     }
 
-    /* Máscara de grade física do letreiro de LED */
+    /* Máscara física de LEDs pontilhados */
     .led-ticker-container::before {
         content: " ";
         display: block;
         position: absolute;
         top: 0; left: 0; bottom: 0; right: 0;
-        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.4) 50%), 
-                    linear-gradient(90deg, rgba(255, 0, 0, 0), rgba(0, 0, 0, 0.6));
-        background-size: 100% 3px, 3px 100%;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.5) 50%), 
+                    linear-gradient(90deg, rgba(255, 0, 0, 0), rgba(0, 0, 0, 0.7));
+        background-size: 100% 4px, 4px 100%; /* Ajuste fino dos pontos para tamanho maior */
         z-index: 10;
         pointer-events: none;
     }
@@ -94,24 +96,26 @@ st.markdown("""
         display: flex;
         white-space: nowrap;
         padding-left: 100%;
-        animation: led-scroll 25s linear infinite;
+        animation: led-scroll 22s linear infinite;
     }
 
+    /* Fonte de LED gigante e brilhante */
     .led-game {
         display: inline-block;
-        padding: 0 3rem;
-        font-size: 1.6rem;
+        padding: 0 4rem;
+        font-size: 2.3rem; /* Fonte expandida substancialmente */
         font-family: 'Lucida Console', 'Courier New', monospace; 
         font-weight: 900;
-        color: #00D2FF;
-        text-shadow: 0 0 8px #00D2FF, 0 0 20px #134074;
-        letter-spacing: 4px;
+        color: #00D2FF; 
+        text-shadow: 0 0 12px #00D2FF, 0 0 25px #134074; 
+        letter-spacing: 6px; /* Espaçamento de caracteres de painel eletrônico */
     }
 
     @keyframes led-scroll {
         0% { transform: translate3d(0, 0, 0); }
         100% { transform: translate3d(-100%, 0, 0); }
     }
+    /* ================================================================= */
 
     .stButton>button {
         background-color: #134074 !important;
@@ -153,35 +157,32 @@ with st.container():
     st.markdown('<span class="led-placeholder-text">[ DESTACADO: SHIELD LED MATRIX ]</span>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # 2. BLOCO DE DADOS DISTRIBUÍDO LOGO ABAIXO DO ESCUDO
+    # 2. BLOCO DE DADOS LOGO ABAIXO DO ESCUDO (Múltiplas Colunas)
     st.markdown('<div class="game-status-bar">', unsafe_allow_html=True)
-    status_cols = st.columns([1.2, 1.6, 1.2]) # Pesos para equilibrar o placar ao vivo no meio
+    status_cols = st.columns([1.2, 1.6, 1.2])
     
     with status_cols[0]:
-        # Lado Esquerdo: Próximo Jogo
         st.markdown("<p style='color: #8892B0; font-size: 11px; margin-bottom: 2px; text-align: left;'>◀ PRÓXIMO JOGO</p>", unsafe_allow_html=True)
         st.markdown("<p style='color: #FFFFFF; font-size: 14px; font-weight: bold; text-align: left;'>COR vs FLA</p>", unsafe_allow_html=True)
         st.markdown("<p style='color: #00D2FF; font-size: 12px; text-align: left;'>Dom - 16:00</p>", unsafe_allow_html=True)
         
     with status_cols[1]:
-        # Centro: Se estiver jogando, exibe o Placar Ao Vivo
         st.markdown("<p style='color: #FF9F00; font-size: 11px; margin-bottom: 2px; text-align: center;'>• EM ANDAMENTO •</p>", unsafe_allow_html=True)
         st.markdown("<p style='color: #00D2FF; font-size: 20px; font-weight: bold; text-align: center; letter-spacing: 2px;'>FLA 2 x 0 PAL</p>", unsafe_allow_html=True)
         st.markdown("<p style='color: #FF9F00; font-size: 12px; text-align: center;'>2º Tempo - 22'</p>", unsafe_allow_html=True)
         
     with status_cols[2]:
-        # Lado Direito: Último Jogo
         st.markdown("<p style='color: #8892B0; font-size: 11px; margin-bottom: 2px; text-align: right;'>ÚLTIMO JOGO ▶</p>", unsafe_allow_html=True)
         st.markdown("<p style='color: #FFFFFF; font-size: 14px; font-weight: bold; text-align: right;'>VIZ 1 x 2 FLA</p>", unsafe_allow_html=True)
         st.markdown("<p style='color: #00D2FF; font-size: 12px; text-align: right;'>03/06 - FIM</p>", unsafe_allow_html=True)
         
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Botão de Comando do Módulo Front
+    # Botão de Atualização Manual
     if st.button("ATUALIZAR DISPLAY", use_container_width=False):
         pass
         
-    # 3. LETREIRO DE LED EM MATRIZ DE PONTOS NO RODAPÉ DO PAINEL
+    # 3. LETREIRO DE LED GIGANTE OCUPANDO TODO O RODAPÉ DO CONTAINER
     st.markdown('<div class="led-ticker-container">', unsafe_allow_html=True)
     st.markdown('<div class="led-ticker-text">', unsafe_allow_html=True)
     
@@ -193,7 +194,3 @@ with st.container():
     st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
-
-# Rodapé de Status do Terminal
-st.markdown("<br><hr style='border-color: #0B2545;'>", unsafe_allow_html=True)
-st.markdown(f"<p style='color: #00D2FF; font-family: monospace; margin-bottom: 2px;'>PAINEL DIGITAL DE ESCUDOS - {selected_club.upper()} | {selected_championship.upper()}</p>", unsafe_allow_html=True)
