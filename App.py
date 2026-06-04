@@ -1,8 +1,7 @@
 import streamlit as st
 import datetime
-import requests
+import os
 from PIL import Image, ImageDraw
-from io import BytesIO
 
 # CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(
@@ -12,48 +11,45 @@ st.set_page_config(
 )
 
 # ==========================================
-# MOTOR GRÁFICO OTIMIZADO: IMAGE TO LED MATRIX
+# MOTOR GRÁFICO LOCAL: ULTRA RÁPIDO E BLINDADO
 # ==========================================
-def gerar_imagem_led_matrix(url_imagem, tamanho_matriz=64):
+def gerar_imagem_led_matrix_local(nome_arquivo, tamanho_matriz=64):
     """
-    Processa a imagem e reconstrói uma grade real de pontos LED espaçados
-    gerando um único arquivo de imagem de alta performance.
+    Carrega a imagem direto da pasta local do repositório, garantindo
+    velocidade máxima e zero travamentos externos.
     """
     try:
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        }
-        response = requests.get(url_imagem, headers=headers, timeout=10)
-        if response.status_code != 200:
+        # Caminho relativo para a pasta de escudos dentro do GitHub
+        caminho_imagem = os.path.join("escudos", nome_arquivo)
+        
+        if not os.path.exists(caminho_imagem):
             return None
             
-        img = Image.open(BytesIO(response.content)).convert("RGBA")
+        img = Image.open(caminho_imagem).convert("RGBA")
         
-        # Reduz para a resolução da matriz de LED (ex: 64x64 pontos)
+        # Reduz para a resolução da matriz de LED
         img_led = img.resize((tamanho_matriz, tamanho_matriz), Image.Resampling.NEAREST)
         
-        # Cria uma nova imagem em alta definição para desenhar o painel de LEDs físico
-        fator_escala = 8  # Cada led terá 8x8 pixels de tamanho na tela
+        # Cria a imagem física que simula o painel eletrônico
+        fator_escala = 8  
         dimensao = tamanho_matriz * fator_escala
-        painel_led = Image.new("RGBA", (dimensao, dimensao), (1, 4, 9, 255)) # Fundo escuro do painel #010409
+        painel_led = Image.new("RGBA", (dimensao, dimensao), (1, 4, 9, 255)) 
         draw = ImageDraw.Draw(painel_led)
         
-        # Varre a matriz desenhando as lâmpadas
         for y in range(tamanho_matriz):
             for x in range(tamanho_matriz):
                 r, g, b, a = img_led.getpixel((x, y))
                 
-                # Coordenadas do quadrado do LED
                 x0 = x * fator_escala
                 y0 = y * fator_escala
                 x1 = x0 + fator_escala - 1
                 y1 = y0 + fator_escala - 1
                 
-                # Se for transparente, desenha o LED apagado (azul de fundo do terminal)
                 if a < 50:
-                    draw.ellipse([x0+2, y0+2, x1-2, y1-2], fill=(13, 26, 45, 60))
+                    # LED apagado (azul escuro de fundo)
+                    draw.ellipse([x0+2, y0+2, x1-2, y1-2], fill=(13, 26, 45, 40))
                 else:
-                    # LED aceso com a cor original do clube
+                    # LED aceso com a cor exata do time
                     draw.ellipse([x0+1, y0+1, x1-1, y1-1], fill=(r, g, b, 255))
                     
         return painel_led
@@ -100,12 +96,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# MAPA DE URLS DE ESCUDOS
+# MAPEAMENTO LOCAL DE ARQUIVOS (DENTRO DO GITHUB)
 # ==========================================
-urls_escudos = {
-    "Clube de Regatas do Flamengo": "https://upload.wikimedia.org/wikipedia/commons/2/2e/Flamengo_brazil_crest.png",
-    "Fluminense Football Club": "https://upload.wikimedia.org/wikipedia/commons/a/a3/Fluminense_crest-wm.png",
-    "Sport Club Corinthians Paulista": "https://upload.wikimedia.org/wikipedia/pt/b/b4/Corinthians_sistema_2022.png"
+arquivos_escudos = {
+    "Clube de Regatas do Flamengo": "flamengo.png",
+    "Fluminense Football Club": "fluminense.png",
+    "Sport Club Corinthians Paulista": "corinthians.png"
 }
 
 # ==========================================
@@ -123,7 +119,7 @@ with st.sidebar:
     st.markdown("<hr style='border-color: #0B2545;'>", unsafe_allow_html=True)
     st.markdown("<h3 style='color: #FFFFFF;'>SELECTABLE</h3>", unsafe_allow_html=True)
     
-    mock_clubs = list(urls_escudos.keys())
+    mock_clubs = list(arquivos_escudos.keys())
     selected_club = st.radio("Disponíveis:", mock_clubs, label_visibility="collapsed")
 
 # ==========================================
@@ -134,16 +130,20 @@ st.markdown("<h1 style='color: #00D2FF; font-family: monospace; font-size: 24px;
 with st.container():
     st.markdown('<div class="main-display-container">', unsafe_allow_html=True)
     
-    url_alvo = urls_escudos.get(selected_club)
+    # Busca o nome do arquivo mapeado localmente
+    arquivo_alvo = arquivos_escudos.get(selected_club)
     
-    # 1. EXECUTA O NOVO MOTOR GRÁFICO ULTRA LEVE
-    imagem_matriz = gerar_imagem_led_matrix(url_alvo, tamanho_matriz=64)
+    # Roda o motor puxando o arquivo direto do HD do servidor do GitHub
+    imagem_matriz = gerar_imagem_led_matrix_local(arquivo_alvo, tamanho_matriz=64)
     
     if imagem_matriz is not None:
-        # Exibe a imagem processada com contorno luminoso CSS simulando a sinaleira
         st.image(imagem_matriz, width=420, output_format="PNG")
     else:
-        st.markdown('<div style="color: #FF3333; font-family: monospace; height: 420px; display:flex; align-items:center;">[ AGUARDANDO CONEXÃO COM O REPOSITÓRIO IMAGENS ]</div>', unsafe_allow_html=True)
+        # Mensagem intuitiva caso você ainda não tenha subido o arquivo PNG na pasta escudos
+        st.markdown(f'<div style="color: #FF9F00; font-family: monospace; height: 420px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">'
+                    f'<span>[ AGUARDANDO ARQUIVO LOCAL ]</span><br>'
+                    f'<span style="font-size:11px; color:#8892B0;">Insira o arquivo "{arquivo_alvo}" dentro da pasta "escudos" no seu GitHub para acender o painel.</span>'
+                    f'</div>', unsafe_allow_html=True)
         
     # 2. BLOCO DE DADOS DINÂMICOS
     st.markdown('<div class="game-status-bar">', unsafe_allow_html=True)
