@@ -1,82 +1,110 @@
 import streamlit as st
+import datetime
 
-# 1. Configuração de Tela Cheia
+# CONFIGURAÇÃO DA PÁGINA (Deve ser o primeiro comando Streamlit)
 st.set_page_config(
-    page_title="K97 - Imortal Real Glow", 
-    layout="wide", 
-    initial_sidebar_state="collapsed"
+    page_title="Terminal K97 - Painel Digital",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# 2. Configura o fundo da página principal para Black Total
+# ESTILIZAÇÃO CUSTOMIZADA (CSS) - Cores estritas do terminal e centralização
 st.markdown("""
     <style>
-        #MainMenu, footer, header {visibility: hidden;}
-        .stApp {
-            background-color: #000000;
-            margin: 0;
-            padding: 0;
-        }
-        iframe {
-            display: block;
-            margin: auto;
-        }
+    /* Fundo geral e fontes do terminal */
+    .stApp {
+        background-color: #0A0F1D;
+    }
+    
+    /* Centralização do painel de exibição principal */
+    .main-display-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid #1E293B;
+        border-radius: 10px;
+        padding: 30px;
+        background-color: #0D1527;
+        margin-top: 10px;
+    }
+    
+    /* Moldura simulando a área da matriz de LED */
+    .led-matrix-frame {
+        width: 100%;
+        max-width: 500px;
+        height: 400px;
+        background-color: #050811;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+    
+    /* Texto simulado de LED apagado para fins de design do front */
+    .led-placeholder-text {
+        color: #1E293B;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        letter-spacing: 2px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# 3. Desenho Vetorial com as Calotas Azuis que corrigem o formato das listras
-escudo_ajustado = """
-<div style="background-color: #000000; display: flex; justify-content: center; align-items: center; height: 95vh; overflow: hidden;">
-    <style>
-        .gremio-neon-perfeito {
-            width: 380px;
-            height: auto;
-            filter: drop-shadow(0 0 15px #00a8ff) drop-shadow(0 0 45px #0055ff);
-            animation: pulse 2.5s infinite alternate;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); filter: drop-shadow(0 0 15px #00a8ff) drop-shadow(0 0 45px #0055ff); }
-            100% { transform: scale(1.02); filter: drop-shadow(0 0 25px #00a8ff) drop-shadow(0 0 70px #00a8ff); }
-        }
-    </style>
+# ==========================================
+# BARRA LATERAL (SIDEBAR) - Seletor Modular
+# ==========================================
+with st.sidebar:
+    st.markdown("<h2 style='color: #FFFFFF;'>CLUB CRESTS</h2>", unsafe_allow_html=True)
     
-    <svg class="gremio-neon-perfeito" viewBox="0 0 491 507" xmlns="http://www.w3.org/2000/svg">
-        <path d="M245.5,12 C365.5,12 473.5,108 473.5,253.5 C473.5,399 365.5,495 245.5,495 C125.5,495 17.5,399 17.5,253.5 C17.5,108 125.5,12 245.5,12 Z" fill="#ffffff"/>
+    # Campo de busca (Apenas front-end para o alinhamento)
+    search_query = st.text_input("Search...", placeholder="Digite o nome do clube...")
+    
+    st.markdown("<hr style='border-color: #1E293B;'>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color: #FFFFFF;'>SELECTABLE</h3>", unsafe_allow_html=True)
+    
+    # Mock do seletor visual na barra lateral
+    mock_clubs = ["Clube de Regatas do Flamengo", "Fluminense Football Club", "Outros"]
+    selected_club = st.radio("Disponíveis:", mock_clubs, label_visibility="collapsed")
+
+
+# ==========================================
+# CORPO PRINCIPAL - Layout Centralizado
+# ==========================================
+
+# Título do Módulo / Identificação do Terminal
+st.markdown("<h1 style='color: #00D2FF; font-family: monospace;'>TERMINAL K97 // DIGITAL DISPLAY</h1>", unsafe_allow_html=True)
+
+# Container da Interface Principal
+with st.container():
+    st.markdown('<div class="main-display-container">', unsafe_allow_html=True)
+    
+    # Área reservada para a Matriz de LEDs Centralizada
+    st.markdown('<div class="led-matrix-frame">', unsafe_allow_html=True)
+    # Por enquanto, um placeholder indicando onde a grade de pontos se posicionará
+    st.markdown('<span class="led-placeholder-text">[ LED MATRIX PLACEHOLDER ]</span>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Linha de Informações Secundárias (Metadados do jogo/tabela)
+    info_cols = st.columns(3)
+    with info_cols[0]:
+        st.markdown("<p style='color: #FFFFFF; text-align: left; font-family: monospace;'>Último Jogo: VIZ 2-1</p>", unsafe_allow_html=True)
+    with info_cols[1]:
+        st.markdown("<p style='color: #FFFFFF; text-align: center; font-family: monospace;'>Gols: 9 | Tabela: G4</p>", unsafe_allow_html=True)
+    with info_cols[2]:
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        st.markdown(f"<p style='color: #FFFFFF; text-align: right; font-family: monospace;'>Última Atualização: {current_time}</p>", unsafe_allow_html=True)
+    
+    # Botão de Comando do Front
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("ATUALIZAR", use_container_width=False):
+        pass # Ação modular JIT para ser conectada posteriormente
         
-        <path d="M245.5,22 C355.5,22 453.5,115 453.5,253.5 C453.5,392 355.5,485 245.5,485 C135.5,485 37.5,392 37.5,253.5 C37.5,115 135.5,22 245.5,22 Z" fill="#000000"/>
-        
-        <g id="miolo">
-            <path d="M245.5,32 C345.5,32 433.5,122 433.5,253.5 C433.5,385 345.5,475 245.5,475 C145.5,475 57.5,385 57.5,253.5 C57.5,122 145.5,32 245.5,32 Z" fill="#00a8ff"/>
-            
-            <path d="M120,70 L120,437 C100,390 85,330 85,253 C85,177 100,117 120,70 Z" fill="#000000"/>
-            <rect x="150" y="45" width="35" height="417" fill="#000000"/>
-            <rect x="215" y="35" width="60" height="437" fill="#000000"/>
-            <rect x="306" y="45" width="35" height="417" fill="#000000"/>
-            <path d="M371,70 L371,437 C391,390 406,330 406,253 C406,177 391,117 371,70 Z" fill="#000000"/>
+    st.markdown('</div>', unsafe_allow_html=True)
 
-            <rect x="147" y="45" width="3" height="417" fill="#ffffff"/>
-            <rect x="185" y="45" width="3" height="417" fill="#ffffff"/>
-            <rect x="212" y="35" width="3" height="437" fill="#ffffff"/>
-            <rect x="275" y="35" width="3" height="437" fill="#ffffff"/>
-            <rect x="303" y="45" width="3" height="417" fill="#ffffff"/>
-            <rect x="341" y="45" width="3" height="417" fill="#ffffff"/>
-
-            <path d="M115,105 C150,55 340,55 375,105 C330,135 160,135 115,105 Z" fill="#00a8ff"/>
-            <path d="M115,400 C160,370 330,370 375,400 C340,450 150,450 115,400 Z" fill="#00a8ff"/>
-        </g>
-
-        <path d="M41.5,225 C145.5,190 345.5,190 449.5,225 L445.5,285 C345.5,250 145.5,250 45.5,285 Z" fill="#ffffff" stroke="#000000" stroke-width="4"/>
-
-        <path id="caminho-texto" d="M 60,250 Q 245,195 430,250" fill="none" />
-        <text font-family="'Arial Black', Impact, sans-serif" font-size="42" font-weight="900" fill="#000000" text-anchor="middle">
-            <textPath href="#caminho-texto" startOffset="50%">GRÊMIO</textPath>
-        </text>
-
-        <text x="245" y="115" font-family="'Arial Black', sans-serif" font-size="36" font-weight="bold" fill="#ffffff" text-anchor="middle">1903</text>
-        
-        <text x="245" y="425" font-family="'Arial Black', sans-serif" font-size="30" font-weight="bold" fill="#ffffff" text-anchor="middle">FBPA</text>
-    </svg>
-</div>
-"""
-
-# 4. Injeta a fiação limpa sem vazar texto
-st.components.v1.html(escudo_ajustado, height=800)
+# Footer Informativo com Dados de Status
+st.markdown("<br><hr style='border-color: #1E293B;'>", unsafe_allow_html=True)
+st.markdown(f"<p style='color: #00D2FF; font-family: monospace; margin-bottom: 2px;'>PAINEL DIGITAL DE ESCUDOS - {selected_club.upper()}</p>", unsafe_allow_html=True)
+st.markdown("<p style='color: #FFFFFF; font-family: monospace;'>STATUS: <span style='color: #FF9F00;'>ATIVO (AGUARDANDO ENGINE DE LED)</span> | ATUALIZAÇÃO: Tempo Real (API GitHub)</p>", unsafe_allow_html=True)
