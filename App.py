@@ -1,8 +1,6 @@
 import streamlit as st
 import datetime
 import os
-import base64
-from io import BytesIO
 from PIL import Image, ImageDraw
 
 # CONFIGURAÇÃO DA PÁGINA - FORÇA LARGURA MÁXIMA REAL
@@ -48,7 +46,7 @@ def gerar_imagem_led_matrix_local(nome_arquivo, tamanho_matriz=64):
         return None
 
 # ==========================================
-# ESTILIZAÇÃO CUSTOMIZADA (CSS) - CORREÇÃO DE EIXO
+# ESTILIZAÇÃO CUSTOMIZADA (CSS) - CORREÇÃO DE EIXO CENTRAL
 # ==========================================
 st.markdown("""
     <style>
@@ -66,10 +64,9 @@ st.markdown("""
     /* Força o alinhamento vertical exato das colunas do Streamlit */
     [data-testid="stHorizontalBlock"] {
         align-items: flex-end !important;
-        gap: 1rem !important;
     }
     
-    /* Centralizador do container do Escudo */
+    /* CENTRALIZADOR DO ESCUDO (Garante que ele vá para a esquerda, pro centro real) */
     .shield-display-container {
         display: flex !important;
         justify-content: center !important;
@@ -77,7 +74,13 @@ st.markdown("""
         width: 100% !important;
         margin: 0 auto 15px auto;
     }
-    .shield-display-container img { max-width: 260px !important; width: 100% !important; height: auto !important; }
+    /* Força a imagem a ignorar margens fantasmas e centralizar */
+    .shield-display-container [data-testid="stImage"] {
+        margin: 0 auto !important;
+        display: flex !important;
+        justify-content: center !important;
+    }
+    .shield-display-container img { max-width: 260px !important; width: 100% !important; height: auto !important; margin: 0 auto !important; }
     
     /* LETREIRO DE LED INFERIOR (PONTA A PONTA REAL DA TELA) */
     .led-ticker-edge-to-edge {
@@ -134,16 +137,15 @@ with st.sidebar:
     selected_club = st.radio("Disponíveis:", mock_clubs, label_visibility="collapsed")
 
 # ==========================================
-# EXECUÇÃO DO CONTEÚDO SUPERIOR (COM RECUO)
+# EXECUÇÃO DO CONTEÚDO SUPERIOR
 # ==========================================
 st.markdown('<div class="painel-wrapper">', unsafe_allow_html=True)
 
-# Geração dinâmica baseada na seleção lateral
 arquivo_alvo = arquivos_escudos.get(selected_club)
 imagem_matriz = gerar_imagem_led_matrix_local(arquivo_alvo, tamanho_matriz=64)
 
-# Montagem do Grid nativo corrigido por CSS externo
-status_cols = st.columns([1.2, 1.6, 1.2])
+# Calibrado as proporções (1.3 nas pontas e 1.4 no centro) para encolher o meio e alinhar
+status_cols = st.columns([1.3, 1.4, 1.3])
 
 # COLUNA 1: Próximo Jogo (Esquerda)
 with status_cols[0]:
@@ -151,9 +153,8 @@ with status_cols[0]:
     st.markdown("<p style='color: #FFFFFF; font-size: 15px; font-weight: bold; margin-bottom: 2px; text-align: left;'>COR vs FLA</p>", unsafe_allow_html=True)
     st.markdown("<p style='color: #00D2FF; font-size: 12px; text-align: left;'>Dom - 16:00</p>", unsafe_allow_html=True)
 
-# COLUNA 2: Centro Absoluto (Escudo Gigante em cima + Placar embaixo)
+# COLUNA 2: Centro Absoluto (Escudo Puxado para o Centro Real + Placar)
 with status_cols[1]:
-    # Container para forçar centralização da imagem gerada pelo motor local
     st.markdown('<div class="shield-display-container">', unsafe_allow_html=True)
     if imagem_matriz is not None:
         st.image(imagem_matriz, use_container_width=False, output_format="PNG")
@@ -161,7 +162,6 @@ with status_cols[1]:
         st.markdown(f'<div style="color: #FF9F00; font-family: monospace; font-size: 12px;">[ AGUARDANDO: {arquivo_alvo} ]</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Placar alinhado exatamente sob o escudo centralizado
     st.markdown("<p style='color: #FF9F00; font-size: 11px; margin-bottom: 4px; text-align: center; font-weight: bold;'>• EM ANDAMENTO •</p>", unsafe_allow_html=True)
     st.markdown("<p style='color: #00D2FF; font-size: 26px; font-weight: bold; text-align: center; letter-spacing: 2px; margin-bottom: 4px;'>FLA 2 x 0 PAL</p>", unsafe_allow_html=True)
     st.markdown("<p style='color: #FF9F00; font-size: 12px; text-align: center;'>2º Tempo - 22'</p>", unsafe_allow_html=True)
@@ -172,10 +172,10 @@ with status_cols[2]:
     st.markdown("<p style='color: #FFFFFF; font-size: 15px; font-weight: bold; margin-bottom: 2px; text-align: right;'>VIZ 1 x 2 FLA</p>", unsafe_allow_html=True)
     st.markdown("<p style='color: #00D2FF; font-size: 12px; text-align: right;'>03/06 - FIM</p>", unsafe_allow_html=True)
 
-st.markdown('</div>', unsafe_allow_html=True) # Fecha a painel-wrapper
+st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
-# ROBUSTECIMENTO DO RODAPÉ: LETREIRO PONTA A PONTA
+# LED TICKER RODAPÉ PONTA A PONTA
 # ==========================================
 st.markdown("""
 <div class="led-ticker-edge-to-edge">
