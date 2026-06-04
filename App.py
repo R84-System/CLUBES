@@ -11,15 +11,14 @@ st.set_page_config(
 )
 
 # ==========================================
-# MOTOR GRÁFICO LOCAL: ULTRA RÁPIDO E BLINDADO
+# MOTOR GRÁFICO LOCAL: AJUSTADO PARA RESOLUÇÃO MÁXIMA
 # ==========================================
-def gerar_imagem_led_matrix_local(nome_arquivo, tamanho_matriz=64):
+def gerar_imagem_led_matrix_local(nome_arquivo, tamanho_matriz=80):
     """
-    Carrega a imagem direto da pasta local do repositório, garantindo
-    velocidade máxima e zero travamentos externos.
+    Carrega a imagem localmente e reconstrói a matriz com densidade ampliada
+    para dar nitidez máxima quando o escudo estiver gigante na tela.
     """
     try:
-        # Caminho relativo para a pasta de escudos dentro do GitHub
         caminho_imagem = os.path.join("escudos", nome_arquivo)
         
         if not os.path.exists(caminho_imagem):
@@ -27,10 +26,10 @@ def gerar_imagem_led_matrix_local(nome_arquivo, tamanho_matriz=64):
             
         img = Image.open(caminho_imagem).convert("RGBA")
         
-        # Reduz para a resolução da matriz de LED
+        # Aumentamos para 80x80 pontos para manter a nitidez do escudo grande
         img_led = img.resize((tamanho_matriz, tamanho_matriz), Image.Resampling.NEAREST)
         
-        # Cria a imagem física que simula o painel eletrônico
+        # Fator de escala adaptado para preencher a tela centralizadamente
         fator_escala = 8  
         dimensao = tamanho_matriz * fator_escala
         painel_led = Image.new("RGBA", (dimensao, dimensao), (1, 4, 9, 255)) 
@@ -46,10 +45,8 @@ def gerar_imagem_led_matrix_local(nome_arquivo, tamanho_matriz=64):
                 y1 = y0 + fator_escala - 1
                 
                 if a < 50:
-                    # LED apagado (azul escuro de fundo)
                     draw.ellipse([x0+2, y0+2, x1-2, y1-2], fill=(13, 26, 45, 40))
                 else:
-                    # LED aceso com a cor exata do time
                     draw.ellipse([x0+1, y0+1, x1-1, y1-1], fill=(r, g, b, 255))
                     
         return painel_led
@@ -57,24 +54,45 @@ def gerar_imagem_led_matrix_local(nome_arquivo, tamanho_matriz=64):
         return None
 
 # ==========================================
-# ESTILIZAÇÃO CUSTOMIZADA (CSS)
+# ESTILIZAÇÃO CUSTOMIZADA (CSS) - ENGENHARIA VISUAL CENTRALIZADA
 # ==========================================
 st.markdown("""
     <style>
+    /* Reset de fundo */
     .stApp { background-color: #030712; }
+    
+    /* Remove padding excessivo do Streamlit para colar o painel no topo */
+    .block-container { padding-top: 1.5rem !important; padding-bottom: 1rem !important; }
+    
     h2, h3, label, .stMarkdown p { color: #E2E8F0 !important; font-family: 'Courier New', monospace; }
     
+    /* Container principal centralizado na tela */
     .main-display-container {
         display: flex; flex-direction: column; align-items: center; justify-content: center;
-        border: 2px solid #0B2545; border-radius: 12px; padding: 30px;
-        background-color: #050E1E; box-shadow: 0 0 25px rgba(0, 102, 204, 0.2);
+        border: 2px solid #0B2545; border-radius: 16px; padding: 35px;
+        background-color: #050E1E; box-shadow: 0 0 35px rgba(0, 102, 204, 0.25);
+        margin: 0 auto; max-width: 950px;
     }
     
-    .game-status-bar { width: 100%; max-width: 600px; font-family: 'Courier New', monospace; margin-bottom: 25px; }
+    /* Moldura central de contenção do Escudo Gigante */
+    .shield-wrapper {
+        display: flex; justify-content: center; align-items: center;
+        width: 100%; max-width: 520px;
+        border: 3px solid #134074; border-radius: 12px; padding: 10px;
+        background-color: #010409; box-shadow: inset 0 0 30px rgba(0, 210, 255, 0.2);
+        margin-bottom: 30px;
+    }
     
+    /* Força a imagem central a respeitar os limites do bloco */
+    .shield-wrapper img { width: 100%; height: auto; display: block; }
+    
+    /* Grid de informações logo abaixo do escudo */
+    .game-status-bar { width: 100%; max-width: 800px; font-family: 'Courier New', monospace; margin-bottom: 30px; }
+    
+    /* LETREIRO DE LED GIGANTE NO RODAPÉ */
     .led-ticker-container {
         width: 100%; overflow: hidden; background-color: #000000; 
-        border: 4px solid #134074; border-radius: 6px; padding: 20px 0; margin-top: 15px; position: relative;
+        border: 4px solid #134074; border-radius: 6px; padding: 22px 0; margin-top: 15px; position: relative;
         box-shadow: 0 0 25px rgba(0, 210, 255, 0.5);
     }
     .led-ticker-container::before {
@@ -85,18 +103,23 @@ st.markdown("""
     }
     .led-ticker-text { display: flex; white-space: nowrap; padding-left: 100%; animation: led-scroll 22s linear infinite; }
     .led-game {
-        display: inline-block; padding: 0 4rem; font-size: 2.3rem; 
+        display: inline-block; padding: 0 4rem; font-size: 2.5rem; 
         font-family: 'Lucida Console', 'Courier New', monospace; font-weight: 900;
         color: #00D2FF; text-shadow: 0 0 12px #00D2FF, 0 0 25px #134074; letter-spacing: 6px;
     }
     @keyframes led-scroll { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
     
-    .stButton>button { background-color: #134074 !important; color: #FFFFFF !important; border: 1px solid #00D2FF !important; font-family: 'Courier New', monospace !important; font-weight: bold !important; }
+    /* Botão Atualizar Estilizado */
+    .stButton>button { 
+        background-color: #134074 !important; color: #FFFFFF !important; 
+        border: 1px solid #00D2FF !important; font-family: 'Courier New', monospace !important; 
+        font-weight: bold !important; padding: 8px 24px !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# MAPEAMENTO LOCAL DE ARQUIVOS (DENTRO DO GITHUB)
+# MAPA DE ARQUIVOS LOCAIS
 # ==========================================
 arquivos_escudos = {
     "Clube de Regatas do Flamengo": "flamengo.png",
@@ -123,52 +146,48 @@ with st.sidebar:
     selected_club = st.radio("Disponíveis:", mock_clubs, label_visibility="collapsed")
 
 # ==========================================
-# CORPO PRINCIPAL
+# PAINEL CENTRAL (CORPO PRINCIPAL)
 # ==========================================
-st.markdown("<h1 style='color: #00D2FF; font-family: monospace; font-size: 24px;'>TERMINAL K97 // LED MATRIX DISPLAY</h1>", unsafe_allow_html=True)
-
 with st.container():
     st.markdown('<div class="main-display-container">', unsafe_allow_html=True)
     
-    # Busca o nome do arquivo mapeado localmente
+    # Executa a renderização
     arquivo_alvo = arquivos_escudos.get(selected_club)
+    imagem_matriz = gerar_imagem_led_matrix_local(arquivo_alvo, tamanho_matriz=80)
     
-    # Roda o motor puxando o arquivo direto do HD do servidor do GitHub
-    imagem_matriz = gerar_imagem_led_matrix_local(arquivo_alvo, tamanho_matriz=64)
-    
+    # 1. ESCUDO GIGANTE E CENTRALIZADO DENTRO DA MOLDURA ELETRÔNICA
+    st.markdown('<div class="shield-wrapper">', unsafe_allow_html=True)
     if imagem_matriz is not None:
-        st.image(imagem_matriz, width=420, output_format="PNG")
+        st.image(imagem_matriz, use_container_width=True, output_format="PNG")
     else:
-        # Mensagem intuitiva caso você ainda não tenha subido o arquivo PNG na pasta escudos
-        st.markdown(f'<div style="color: #FF9F00; font-family: monospace; height: 420px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;">'
-                    f'<span>[ AGUARDANDO ARQUIVO LOCAL ]</span><br>'
-                    f'<span style="font-size:11px; color:#8892B0;">Insira o arquivo "{arquivo_alvo}" dentro da pasta "escudos" no seu GitHub para acender o painel.</span>'
-                    f'</div>', unsafe_allow_html=True)
-        
-    # 2. BLOCO DE DADOS DINÂMICOS
-    st.markdown('<div class="game-status-bar">', unsafe_allow_html=True)
-    status_cols = st.columns([1.2, 1.6, 1.2])
-    
-    with status_cols[0]:
-        st.markdown("<p style='color: #8892B0; font-size: 11px; margin-bottom: 2px; text-align: left;'>◀ PRÓXIMO JOGO</p>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #FFFFFF; font-size: 14px; font-weight: bold; text-align: left;'>COR vs FLA</p>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #00D2FF; font-size: 12px; text-align: left;'>Dom - 16:00</p>", unsafe_allow_html=True)
-        
-    with status_cols[1]:
-        st.markdown("<p style='color: #FF9F00; font-size: 11px; margin-bottom: 2px; text-align: center;'>• EM ANDAMENTO •</p>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #00D2FF; font-size: 20px; font-weight: bold; text-align: center; letter-spacing: 2px;'>FLA 2 x 0 PAL</p>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #FF9F00; font-size: 12px; text-align: center;'>2º Tempo - 22'</p>", unsafe_allow_html=True)
-        
-    with status_cols[2]:
-        st.markdown("<p style='color: #8892B0; font-size: 11px; margin-bottom: 2px; text-align: right;'>ÚLTIMO JOGO ▶</p>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #FFFFFF; font-size: 14px; font-weight: bold; text-align: right;'>VIZ 1 x 2 FLA</p>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #00D2FF; font-size: 12px; text-align: right;'>03/06 - FIM</p>", unsafe_allow_html=True)
+        st.markdown(f'<div style="color: #FF9F00; font-family: monospace; height: 350px; display:flex; align-items:center; justify-content:center;">[ INSERIR ARQUIVO: {arquivo_alvo} ]</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     
-    if st.button("ATUALIZAR DISPLAY", use_container_width=False):
+    # 2. BLOCO DE DADOS ALINHADO LOGO ABAIXO DO ESCUDO GIGANTE
+    st.markdown('<div class="game-status-bar">', unsafe_allow_html=True)
+    status_cols = st.columns([1.3, 1.4, 1.3])
+    
+    with status_cols[0]:
+        st.markdown("<p style='color: #8892B0; font-size: 12px; margin-bottom: 2px; text-align: left;'>◀ PRÓXIMO JOGO</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #FFFFFF; font-size: 15px; font-weight: bold; text-align: left;'>COR vs FLA</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #00D2FF; font-size: 13px; text-align: left;'>Dom - 16:00</p>", unsafe_allow_html=True)
+        
+    with status_cols[1]:
+        st.markdown("<p style='color: #FF9F00; font-size: 12px; margin-bottom: 2px; text-align: center;'>• EM ANDAMENTO •</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #00D2FF; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 2px;'>FLA 2 x 0 PAL</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #FF9F00; font-size: 13px; text-align: center;'>2º Tempo - 22'</p>", unsafe_allow_html=True)
+        
+    with status_cols[2]:
+        st.markdown("<p style='color: #8892B0; font-size: 12px; margin-bottom: 2px; text-align: right;'>ÚLTIMO JOGO ▶</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #FFFFFF; font-size: 15px; font-weight: bold; text-align: right;'>VIZ 1 x 2 FLA</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #00D2FF; font-size: 13px; text-align: right;'>03/06 - FIM</p>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Botão de comando integrado
+    if st.button("ATUALIZAR PAINEL", use_container_width=False):
         st.rerun()
         
-    # 3. LETREIRO DE LED NO RODAPÉ
+    # 3. LETREIRO DE LED DINÂMICO E REFORÇADO (TICKER)
     st.markdown('<div class="led-ticker-container">', unsafe_allow_html=True)
     st.markdown('<div class="led-ticker-text">', unsafe_allow_html=True)
     st.markdown('<div class="led-game">FLA 2 . 0 PAL [AO VIVO]</div>', unsafe_allow_html=True)
@@ -178,7 +197,3 @@ with st.container():
     st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
-
-# Rodapé Técnico
-st.markdown("<br><hr style='border-color: #0B2545;'>", unsafe_allow_html=True)
-st.markdown(f"<p style='color: #00D2FF; font-family: monospace; margin-bottom: 2px;'>PAINEL DIGITAL DE ESCUDOS - {selected_club.upper()} | {selected_championship.upper()}</p>", unsafe_allow_html=True)
