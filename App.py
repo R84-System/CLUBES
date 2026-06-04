@@ -1,7 +1,7 @@
 import streamlit as st
 import datetime
 import requests
-from PIL import Image
+from PIL import Image, ImageDraw
 from io import BytesIO
 
 # CONFIGURAÇÃO DA PÁGINA
@@ -12,50 +12,53 @@ st.set_page_config(
 )
 
 # ==========================================
-# MOTOR GRÁFICO: LÓGICA DE CONVERSÃO PARA LED
+# MOTOR GRÁFICO OTIMIZADO: IMAGE TO LED MATRIX
 # ==========================================
-def converter_para_matriz_led(url_imagem, tamanho_matriz=56):
+def gerar_imagem_led_matrix(url_imagem, tamanho_matriz=64):
     """
-    Pega uma URL de imagem, reduz a resolução para criar os 'pixels/lâmpadas'
-    e gera um código SVG composto por círculos brilhantes que imitam LEDs.
+    Processa a imagem e reconstrói uma grade real de pontos LED espaçados
+    gerando um único arquivo de imagem de alta performance.
     """
     try:
-        # 1. Download da imagem do escudo
-        response = requests.get(url_imagem, timeout=10)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+        response = requests.get(url_imagem, headers=headers, timeout=10)
+        if response.status_code != 200:
+            return None
+            
         img = Image.open(BytesIO(response.content)).convert("RGBA")
         
-        # 2. Redimensiona para uma escala baixa (cada pixel vira uma lâmpada LED)
-        img = img.resize((tamanho_matriz, tamanho_matriz), Image.Resampling.NEAREST)
+        # Reduz para a resolução da matriz de LED (ex: 64x64 pontos)
+        img_led = img.resize((tamanho_matriz, tamanho_matriz), Image.Resampling.NEAREST)
         
-        # 3. Construção do SVG (Painel de LEDs)
-        largura_svg = 450
-        espacamento = largura_svg / tamanho_matriz
-        raio_led = (espacamento / 2) * 0.8  # Margem para ver a separação física
+        # Cria uma nova imagem em alta definição para desenhar o painel de LEDs físico
+        fator_escala = 8  # Cada led terá 8x8 pixels de tamanho na tela
+        dimensao = tamanho_matriz * fator_escala
+        painel_led = Image.new("RGBA", (dimensao, dimensao), (1, 4, 9, 255)) # Fundo escuro do painel #010409
+        draw = ImageDraw.Draw(painel_led)
         
-        svg_content = f'<svg width="100%" height="100%" viewBox="0 0 {largura_svg} {largura_svg}" xmlns="http://www.w3.org/2000/svg" style="background-color: #010409;">'
-        
+        # Varre a matriz desenhando as lâmpadas
         for y in range(tamanho_matriz):
             for x in range(tamanho_matriz):
-                r, g, b, a = img.getpixel((x, y))
+                r, g, b, a = img_led.getpixel((x, y))
                 
-                cx = x * espacamento + (espacamento / 2)
-                cy = y * espacamento + (espacamento / 2)
+                # Coordenadas do quadrado do LED
+                x0 = x * fator_escala
+                y0 = y * fator_escala
+                x1 = x0 + fator_escala - 1
+                y1 = y0 + fator_escala - 1
                 
-                # Se o pixel for transparente, desenha o LED "apagado" (azul bem escuro de fundo)
+                # Se for transparente, desenha o LED apagado (azul de fundo do terminal)
                 if a < 50:
-                    svg_content += f'<circle cx="{cx}" cy="{cy}" r="{raio_led}" fill="#0D1A2D" opacity="0.3"/>'
+                    draw.ellipse([x0+2, y0+2, x1-2, y1-2], fill=(13, 26, 45, 60))
                 else:
-                    # Se tiver cor, calcula a luminescência do LED aceso com filtro azul do terminal
-                    # Mantém as cores originais do clube com um brilho neon
-                    cor_hex = f"#{r:02x}{g:02x}{b:02x}"
-                    svg_content += f'<circle cx="{cx}" cy="{cy}" r="{raio_led}" fill="{cor_hex}" style="filter: drop-shadow(0px 0px 3px {cor_hex});"/>'
-        
-        svg_content += '</svg>'
-        return svg_content
-    except Exception as e:
-        # Retorna um indicador visual caso a imagem falhe ao carregar
-        return f'<div style="color: #FF3333; font-family: monospace;">ERRO NO PROCESSAMENTO DO LED: {str(e)}</div>'
-
+                    # LED aceso com a cor original do clube
+                    draw.ellipse([x0+1, y0+1, x1-1, y1-1], fill=(r, g, b, 255))
+                    
+        return painel_led
+    except Exception:
+        return None
 
 # ==========================================
 # ESTILIZAÇÃO CUSTOMIZADA (CSS)
@@ -69,14 +72,6 @@ st.markdown("""
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         border: 2px solid #0B2545; border-radius: 12px; padding: 30px;
         background-color: #050E1E; box-shadow: 0 0 25px rgba(0, 102, 204, 0.2);
-    }
-    
-    .led-matrix-frame {
-        width: 100%; max-width: 450px; height: 450px;
-        background-color: #010409; border: 3px solid #134074; border-radius: 12px;
-        display: flex; align-items: center; justify-content: center;
-        box-shadow: inset 0 0 40px rgba(0, 210, 255, 0.35), 0 0 15px rgba(19, 64, 116, 0.5);
-        margin-bottom: 20px; overflow: hidden;
     }
     
     .game-status-bar { width: 100%; max-width: 600px; font-family: 'Courier New', monospace; margin-bottom: 25px; }
@@ -104,17 +99,14 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-
 # ==========================================
-# DATA DIC: DICIONÁRIO DE URLS DE ESCUDOS MOCK
+# MAPA DE URLS DE ESCUDOS
 # ==========================================
-# URLs estáticas limpas e transparentes do Wikipédia para teste do motor de LED
 urls_escudos = {
     "Clube de Regatas do Flamengo": "https://upload.wikimedia.org/wikipedia/commons/2/2e/Flamengo_brazil_crest.png",
     "Fluminense Football Club": "https://upload.wikimedia.org/wikipedia/commons/a/a3/Fluminense_crest-wm.png",
     "Sport Club Corinthians Paulista": "https://upload.wikimedia.org/wikipedia/pt/b/b4/Corinthians_sistema_2022.png"
 }
-
 
 # ==========================================
 # BARRA LATERAL (SIDEBAR)
@@ -134,25 +126,26 @@ with st.sidebar:
     mock_clubs = list(urls_escudos.keys())
     selected_club = st.radio("Disponíveis:", mock_clubs, label_visibility="collapsed")
 
-
 # ==========================================
-# CORPO PRINCIPAL: PROCESSAMENTO E EXIBIÇÃO
+# CORPO PRINCIPAL
 # ==========================================
 st.markdown("<h1 style='color: #00D2FF; font-family: monospace; font-size: 24px;'>TERMINAL K97 // LED MATRIX DISPLAY</h1>", unsafe_allow_html=True)
 
 with st.container():
     st.markdown('<div class="main-display-container">', unsafe_allow_html=True)
     
-    # Executa o motor gráfico passando a URL mapeada pelo seletor de rádio
     url_alvo = urls_escudos.get(selected_club)
     
-    # 1. CONTAINER DO ESCUDO COM O MOTOR DE LED ACESO
-    st.markdown('<div class="led-matrix-frame">', unsafe_allow_html=True)
-    conteudo_led_svg = converter_para_matriz_led(url_alvo, tamanho_matriz=56)
-    st.markdown(conteudo_led_svg, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    # 1. EXECUTA O NOVO MOTOR GRÁFICO ULTRA LEVE
+    imagem_matriz = gerar_imagem_led_matrix(url_alvo, tamanho_matriz=64)
     
-    # 2. BLOCO DE DADOS DINÂMICOS ABAIXO DO ESCUDO
+    if imagem_matriz is not None:
+        # Exibe a imagem processada com contorno luminoso CSS simulando a sinaleira
+        st.image(imagem_matriz, width=420, output_format="PNG")
+    else:
+        st.markdown('<div style="color: #FF3333; font-family: monospace; height: 420px; display:flex; align-items:center;">[ AGUARDANDO CONEXÃO COM O REPOSITÓRIO IMAGENS ]</div>', unsafe_allow_html=True)
+        
+    # 2. BLOCO DE DADOS DINÂMICOS
     st.markdown('<div class="game-status-bar">', unsafe_allow_html=True)
     status_cols = st.columns([1.2, 1.6, 1.2])
     
@@ -170,10 +163,8 @@ with st.container():
         st.markdown("<p style='color: #8892B0; font-size: 11px; margin-bottom: 2px; text-align: right;'>ÚLTIMO JOGO ▶</p>", unsafe_allow_html=True)
         st.markdown("<p style='color: #FFFFFF; font-size: 14px; font-weight: bold; text-align: right;'>VIZ 1 x 2 FLA</p>", unsafe_allow_html=True)
         st.markdown("<p style='color: #00D2FF; font-size: 12px; text-align: right;'>03/06 - FIM</p>", unsafe_allow_html=True)
-        
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Botão de Atualização que força o recarregamento do Streamlit
     if st.button("ATUALIZAR DISPLAY", use_container_width=False):
         st.rerun()
         
@@ -184,9 +175,10 @@ with st.container():
     st.markdown('<div class="led-game">FLU 1 . 1 COR [AO VIVO]</div>', unsafe_allow_html=True)
     st.markdown('<div class="led-game">SÃO 0 . 0 INT [PROX JOGO]</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Status Geral do Terminal K97
+# Rodapé Técnico
 st.markdown("<br><hr style='border-color: #0B2545;'>", unsafe_allow_html=True)
 st.markdown(f"<p style='color: #00D2FF; font-family: monospace; margin-bottom: 2px;'>PAINEL DIGITAL DE ESCUDOS - {selected_club.upper()} | {selected_championship.upper()}</p>", unsafe_allow_html=True)
