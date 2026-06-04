@@ -11,12 +11,12 @@ st.set_page_config(
 )
 
 # ==========================================
-# MOTOR GRÁFICO LOCAL: COMPACTO E NITIDO
+# MOTOR GRÁFICO LOCAL: AJUSTADO PARA RESOLUÇÃO MÁXIMA
 # ==========================================
-def gerar_imagem_led_matrix_local(nome_arquivo, tamanho_matriz=64):
+def gerar_imagem_led_matrix_local(nome_arquivo, tamanho_matriz=80):
     """
-    Carrega a imagem localmente com matriz de 64x64, ideal para o tamanho
-    redimensionado e mantendo a fidelidade dos pontos físicos.
+    Carrega a imagem localmente e reconstrói a matriz com densidade ampliada
+    para dar nitidez máxima quando o escudo estiver gigante na tela.
     """
     try:
         caminho_imagem = os.path.join("escudos", nome_arquivo)
@@ -27,7 +27,7 @@ def gerar_imagem_led_matrix_local(nome_arquivo, tamanho_matriz=64):
         img = Image.open(caminho_imagem).convert("RGBA")
         img_led = img.resize((tamanho_matriz, tamanho_matriz), Image.Resampling.NEAREST)
         
-        fator_escala = 6  
+        fator_escala = 8  
         dimensao = tamanho_matriz * fator_escala
         painel_led = Image.new("RGBA", (dimensao, dimensao), (1, 4, 9, 255)) 
         draw = ImageDraw.Draw(painel_led)
@@ -42,7 +42,7 @@ def gerar_imagem_led_matrix_local(nome_arquivo, tamanho_matriz=64):
                 y1 = y0 + fator_escala - 1
                 
                 if a < 50:
-                    draw.ellipse([x0+1, y0+1, x1-1, y1-1], fill=(13, 26, 45, 40))
+                    draw.ellipse([x0+2, y0+2, x1-2, y1-2], fill=(13, 26, 45, 40))
                 else:
                     draw.ellipse([x0+1, y0+1, x1-1, y1-1], fill=(r, g, b, 255))
                     
@@ -51,56 +51,57 @@ def gerar_imagem_led_matrix_local(nome_arquivo, tamanho_matriz=64):
         return None
 
 # ==========================================
-# ESTILIZAÇÃO CUSTOMIZADA (CSS) - CORRIGIDA
+# ESTILIZAÇÃO CUSTOMIZADA (CSS) - LIMPA E CENTRALIZADA
 # ==========================================
 st.markdown("""
-<style>
-.stApp { background-color: #030712; }
-.block-container { padding-top: 1rem !important; padding-bottom: 1rem !important; }
-h2, h3, label, .stMarkdown p { color: #E2E8F0 !important; font-family: 'Courier New', monospace; }
-
-.main-display-container {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    border: 2px solid #0B2545; border-radius: 16px; padding: 25px;
-    background-color: #050E1E; box-shadow: 0 0 35px rgba(0, 102, 204, 0.25);
-    margin: 0 auto; max-width: 850px;
-}
-
-.shield-wrapper {
-    display: flex; justify-content: center; align-items: center;
-    width: 100%; max-width: 380px; height: 380px;
-    border: 3px solid #134074; border-radius: 12px; padding: 12px;
-    background-color: #010409; box-shadow: inset 0 0 30px rgba(0, 210, 255, 0.2);
-    margin-bottom: 25px; overflow: hidden;
-}
-
-.shield-wrapper img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.game-status-bar { width: 100%; max-width: 750px; font-family: 'Courier New', monospace; margin-bottom: 25px; }
-
-.led-ticker-container {
-    width: 100%; overflow: hidden; background-color: #000000; 
-    border: 4px solid #134074; border-radius: 6px; padding: 20px 0; margin-top: 10px; position: relative;
-    box-shadow: 0 0 25px rgba(0, 210, 255, 0.5);
-}
-.led-ticker-container::before {
-    content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.5) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0), rgba(0, 0, 0, 0.7));
-    background-size: 100% 4px, 4px 100%; z-index: 10; pointer-events: none;
-}
-.led-ticker-text { display: flex; white-space: nowrap; padding-left: 100%; animation: led-scroll 22s linear infinite; }
-.led-game {
-    display: inline-block; padding: 0 4rem; font-size: 2.4rem; 
-    font-family: 'Lucida Console', 'Courier New', monospace; font-weight: 900;
-    color: #00D2FF; text-shadow: 0 0 12px #00D2FF, 0 0 25px #134074; letter-spacing: 6px;
-}
-@keyframes led-scroll { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
-
-.stButton>button { 
-    background-color: #134074 !important; color: #FFFFFF !important; 
-    border: 1px solid #00D2FF !important; font-family: 'Courier New', monospace !important; 
-    font-weight: bold !important; padding: 6px 20px !important;
-}
-</style>
+    <style>
+    .stApp { background-color: #030712; }
+    .block-container { padding-top: 1.5rem !important; padding-bottom: 1rem !important; }
+    
+    h2, h3, label, .stMarkdown p { color: #E2E8F0 !important; font-family: 'Courier New', monospace; }
+    
+    /* Centraliza o container da imagem do escudo perfeitamente */
+    .shield-wrapper-centered {
+        display: flex; 
+        justify-content: center; 
+        align-items: center;
+        width: 100%; 
+        margin: 0 auto 30px auto;
+    }
+    
+    /* Força a imagem gerada a centralizar */
+    .shield-wrapper-centered img { display: block; margin: 0 auto; max-width: 420px; width: 100%; height: auto; }
+    
+    /* Alinhamento do Grid de Informações Inferior */
+    .game-status-bar { width: 100%; max-width: 900px; font-family: 'Courier New', monospace; margin: 0 auto 30px auto; }
+    
+    /* LETREIRO DE LED NO RODAPÉ */
+    .led-ticker-container {
+        width: 100%; overflow: hidden; background-color: #000000; 
+        border: 4px solid #134074; border-radius: 6px; padding: 22px 0; margin-top: 15px; position: relative;
+        box-shadow: 0 0 25px rgba(0, 210, 255, 0.5);
+    }
+    .led-ticker-container::before {
+        content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.5) 50%), 
+                    linear-gradient(90deg, rgba(255, 0, 0, 0), rgba(0, 0, 0, 0.7));
+        background-size: 100% 4px, 4px 100%; z-index: 10; pointer-events: none;
+    }
+    .led-ticker-text { display: flex; white-space: nowrap; padding-left: 100%; animation: led-scroll 22s linear infinite; }
+    .led-game {
+        display: inline-block; padding: 0 4rem; font-size: 2.5rem; 
+        font-family: 'Lucida Console', 'Courier New', monospace; font-weight: 900;
+        color: #00D2FF; text-shadow: 0 0 12px #00D2FF, 0 0 25px #134074; letter-spacing: 6px;
+    }
+    @keyframes led-scroll { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
+    
+    .stButton { display: flex; justify-content: center; }
+    .stButton>button { 
+        background-color: #134074 !important; color: #FFFFFF !important; 
+        border: 1px solid #00D2FF !important; font-family: 'Courier New', monospace !important; 
+        font-weight: bold !important; padding: 8px 24px !important;
+    }
+    </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
@@ -133,51 +134,48 @@ with st.sidebar:
 # ==========================================
 # PAINEL CENTRAL (CORPO PRINCIPAL)
 # ==========================================
-with st.container():
-    st.markdown('<div class="main-display-container">', unsafe_allow_html=True)
-    
-    arquivo_alvo = arquivos_escudos.get(selected_club)
-    imagem_matriz = gerar_imagem_led_matrix_local(arquivo_alvo, tamanho_matriz=64)
-    
-    # 1. ESCUDO CENTRAL
-    st.markdown('<div class="shield-wrapper">', unsafe_allow_html=True)
-    if imagem_matriz is not None:
-        st.image(imagem_matriz, output_format="PNG")
-    else:
-        st.markdown(f'<div style="color: #FF9F00; font-family: monospace; height: 100%; display:flex; align-items:center; justify-content:center;">[ INSERIR ARQUIVO: {arquivo_alvo} ]</div>', unsafe_allow_html=True)
+arquivo_alvo = arquivos_escudos.get(selected_club)
+imagem_matriz = gerar_imagem_led_matrix_local(arquivo_alvo, tamanho_matriz=80)
+
+# 1. ESCUDO CENTRALIZADO DIRETO NA TELA (Sem bordas ou caixas em volta)
+if imagem_matriz is not None:
+    st.markdown('<div class="shield-wrapper-centered">', unsafe_allow_html=True)
+    st.image(imagem_matriz, output_format="PNG")
     st.markdown('</div>', unsafe_allow_html=True)
+else:
+    st.markdown(f'<div style="color: #FF9F00; font-family: monospace; text-align: center; margin-bottom: 30px;">[ INSERIR ARQUIVO: {arquivo_alvo} ]</div>', unsafe_allow_html=True)
+
+# 2. O RESTO SE MANTÉM IGUAL: BLOCO TRILATERAL DE DADOS COMPLETOS
+st.markdown('<div class="game-status-bar">', unsafe_allow_html=True)
+status_cols = st.columns([1.3, 1.4, 1.3])
+
+with status_cols[0]:
+    st.markdown("<p style='color: #8892B0; font-size: 12px; margin-bottom: 2px; text-align: left;'>◀ PRÓXIMO JOGO</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #FFFFFF; font-size: 15px; font-weight: bold; text-align: left;'>COR vs FLA</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #00D2FF; font-size: 13px; text-align: left;'>Dom - 16:00</p>", unsafe_allow_html=True)
     
-    # 2. BLOCO DE DADOS
-    st.markdown('<div class="game-status-bar">', unsafe_allow_html=True)
-    status_cols = st.columns([1.3, 1.4, 1.3])
+with status_cols[1]:
+    st.markdown("<p style='color: #FF9F00; font-size: 12px; margin-bottom: 2px; text-align: center;'>• EM ANDAMENTO •</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #00D2FF; font-size: 24px; font-weight: bold; text-align: center; letter-spacing: 2px;'>FLA 2 x 0 PAL</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #FF9F00; font-size: 13px; text-align: center;'>2º Tempo - 22'</p>", unsafe_allow_html=True)
     
-    with status_cols[0]:
-        st.markdown("<p style='color: #8892B0; font-size: 11px; margin-bottom: 2px; text-align: left;'>◀ PRÓXIMO JOGO</p>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #FFFFFF; font-size: 14px; font-weight: bold; text-align: left;'>COR vs FLA</p>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #00D2FF; font-size: 12px; text-align: left;'>Dom - 16:00</p>", unsafe_allow_html=True)
-        
-    with status_cols[1]:
-        st.markdown("<p style='color: #FF9F00; font-size: 11px; margin-bottom: 2px; text-align: center;'>• EM ANDAMENTO •</p>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #00D2FF; font-size: 22px; font-weight: bold; text-align: center; letter-spacing: 2px;'>FLA 2 x 0 PAL</p>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #FF9F00; font-size: 12px; text-align: center;'>2º Tempo - 22'</p>", unsafe_allow_html=True)
-        
-    with status_cols[2]:
-        st.markdown("<p style='color: #8892B0; font-size: 11px; margin-bottom: 2px; text-align: right;'>ÚLTIMO JOGO ▶</p>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #FFFFFF; font-size: 14px; font-weight: bold; text-align: right;'>VIZ 1 x 2 FLA</p>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #00D2FF; font-size: 12px; text-align: right;'>03/06 - FIM</p>", unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+with status_cols[2]:
+    st.markdown("<p style='color: #8892B0; font-size: 12px; margin-bottom: 2px; text-align: right;'>ÚLTIMO JOGO ▶</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #FFFFFF; font-size: 15px; font-weight: bold; text-align: right;'>VIZ 1 x 2 FLA</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #00D2FF; font-size: 13px; text-align: right;'>03/06 - FIM</p>", unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Botão de atualizar centralizado
+if st.button("ATUALIZAR PAINEL"):
+    st.rerun()
     
-    # Botão de comando
-    if st.button("ATUALIZAR PAINEL", use_container_width=False):
-        st.rerun()
-        
-    # 3. LETREIRO DE LED (TICKER)
-    st.markdown('<div class="led-ticker-container">', unsafe_allow_html=True)
-    st.markdown('<div class="led-ticker-text">', unsafe_allow_html=True)
-    st.markdown('<div class="led-game">FLA 2 . 0 PAL [AO VIVO]</div>', unsafe_allow_html=True)
-    st.markdown('<div class="led-game">FLU 1 . 1 COR [AO VIVO]</div>', unsafe_allow_html=True)
-    st.markdown('<div class="led-game">SÃO 0 . 0 INT [PROX JOGO]</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+# 3. LETREIRO DE LED INFERIOR (TICKER)
+st.markdown("""
+<div class="led-ticker-container">
+    <div class="led-ticker-text">
+        <div class="led-game">FLA 2 . 0 PAL [AO VIVO]</div>
+        <div class="led-game">FLU 1 . 1 COR [AO VIVO]</div>
+        <div class="led-game">SÃO 0 . 0 INT [PROX JOGO]</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
