@@ -46,7 +46,7 @@ def gerar_imagem_led_matrix_local(nome_arquivo, tamanho_matriz=64):
         return None
 
 # ==========================================
-# ESTILIZAÇÃO CUSTOMIZADA (CSS) - ALINHAMENTO COMPACTO
+# ESTILIZAÇÃO CUSTOMIZADA (CSS) - LAYOUT CENTRAL COMPACTO
 # ==========================================
 st.markdown("""
     <style>
@@ -55,15 +55,20 @@ st.markdown("""
     
     h2, h3, label, .stMarkdown p { color: #E2E8F0 !important; font-family: 'Courier New', monospace; }
     
-    /* LIMITA A LARGURA GERAL DO PAINEL PARA JUNTAR AS LATERAIS */
+    /* LIMITA E CENTRALIZA O PAINEL INTEIRO PARA TRAZER AS LATERAIS JUNTAS DO ESCUDO */
     .game-status-bar { 
         width: 100%; 
-        max-width: 780px; /* Reduzido para trazer as colunas das pontas para perto do escudo */
+        max-width: 820px; 
         font-family: 'Courier New', monospace; 
-        margin: 25px auto 10px auto; 
+        margin: 20px auto 10px auto; 
     }
     
-    /* Centralizador do Escudo na coluna do meio */
+    /* Força o alinhamento vertical dos blocos lado a lado */
+    [data-testid="stHorizontalBlock"] {
+        align-items: center !important;
+    }
+    
+    /* Caixa do Escudo Central */
     .center-shield-box {
         display: flex;
         justify-content: center;
@@ -71,11 +76,20 @@ st.markdown("""
         width: 100%;
         margin-bottom: 15px;
     }
-    .center-shield-box img { max-width: 240px; width: 100%; height: auto; display: block; margin: 0 auto; }
+    .center-shield-box img { max-width: 250px; width: 100%; height: auto; display: block; margin: 0 auto; }
+    
+    /* Bloco lateral ajustado */
+    .side-text-block {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        height: 100%;
+        padding-top: 140px; /* Joga os textos laterais perfeitamente na linha do placar */
+    }
     
     /* LETREIRO DE LED NO RODAPÉ */
     .led-ticker-container {
-        width: 100%; max-width: 780px; overflow: hidden; background-color: #000000; 
+        width: 100%; max-width: 820px; overflow: hidden; background-color: #000000; 
         border: 4px solid #134074; border-radius: 6px; padding: 18px 0; margin: 30px auto 10px auto; position: relative;
         box-shadow: 0 0 25px rgba(0, 210, 255, 0.4);
     }
@@ -93,7 +107,7 @@ st.markdown("""
     }
     @keyframes led-scroll { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
     
-    /* Botão de atualizar centralizado */
+    /* Botão atualizar */
     .stButton { display: flex; justify-content: center; margin: 20px auto; }
     .stButton>button { 
         background-color: #134074 !important; color: #FFFFFF !important; 
@@ -133,23 +147,24 @@ with st.sidebar:
 # ==========================================
 # PAINEL DE DADOS TRILATERAL PRINCIPAL
 # ==========================================
-arquivo_alvo = archivos_escudos.get(selected_club)
+# CORRIGIDO: arquivos_escudos com "qu" para matar o NameError
+arquivo_alvo = arquivos_escudos.get(selected_club)
 imagem_matriz = gerar_imagem_led_matrix_local(arquivo_alvo, tamanho_matriz=64)
 
 st.markdown('<div class="game-status-bar">', unsafe_allow_html=True)
 
-# Definição de proporção ajustada para manter os textos próximos
+# Proporção exata para aproximar os elementos
 status_cols = st.columns([1.1, 1.8, 1.1])
 
 # COLUNA 1: Próximo Jogo (Esquerda)
 with status_cols[0]:
-    st.markdown("<div style='margin-top: 100px;'>", unsafe_allow_html=True) # Empurra o texto para alinhar com o placar
+    st.markdown('<div class="side-text-block">', unsafe_allow_html=True)
     st.markdown("<p style='color: #8892B0; font-size: 11px; margin-bottom: 2px; text-align: left;'>◀ PRÓXIMO JOGO</p>", unsafe_allow_html=True)
     st.markdown("<p style='color: #FFFFFF; font-size: 14px; font-weight: bold; text-align: left;'>COR vs FLA</p>", unsafe_allow_html=True)
     st.markdown("<p style='color: #00D2FF; font-size: 12px; text-align: left;'>Dom - 16:00</p>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# COLUNA 2: CENTRO (Escudo + Placar)
+# COLUNA 2: CENTRO (Escudo centralizado no meio exato + Placar embaixo)
 with status_cols[1]:
     if imagem_matriz is not None:
         st.markdown('<div class="center-shield-box">', unsafe_allow_html=True)
@@ -164,7 +179,7 @@ with status_cols[1]:
 
 # COLUNA 3: Último Jogo (Direita)
 with status_cols[2]:
-    st.markdown("<div style='margin-top: 100px;'>", unsafe_allow_html=True) # Empurra o texto para alinhar com o placar
+    st.markdown('<div class="side-text-block">', unsafe_allow_html=True)
     st.markdown("<p style='color: #8892B0; font-size: 11px; margin-bottom: 2px; text-align: right;'>ÚLTIMO JOGO ▶</p>", unsafe_allow_html=True)
     st.markdown("<p style='color: #FFFFFF; font-size: 14px; font-weight: bold; text-align: right;'>VIZ 1 x 2 FLA</p>", unsafe_allow_html=True)
     st.markdown("<p style='color: #00D2FF; font-size: 12px; text-align: right;'>03/06 - FIM</p>", unsafe_allow_html=True)
