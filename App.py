@@ -1,14 +1,14 @@
 import streamlit as st
 import datetime
 
-# CONFIGURAÇÃO DA PÁGINA (Ajustado para o Python 3.12/3.11 do Streamlit Cloud)
+# CONFIGURAÇÃO DA PÁGINA
 st.set_page_config(
     page_title="Terminal K97 - Painel LED",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# ESTILIZAÇÃO CUSTOMIZADA (CSS) - Paleta Estrita em Azul Tecnológico (Sem piscar)
+# ESTILIZAÇÃO CUSTOMIZADA (CSS) - Efeito Fiel de Letreiro de LED Físico
 st.markdown("""
     <style>
     /* Fundo geral do terminal */
@@ -16,7 +16,6 @@ st.markdown("""
         background-color: #030712;
     }
     
-    /* Customização dos textos da barra lateral */
     h2, h3, label, .stMarkdown p {
         color: #E2E8F0 !important;
         font-family: 'Courier New', monospace;
@@ -33,10 +32,9 @@ st.markdown("""
         padding: 25px;
         background-color: #050E1E;
         box-shadow: 0 0 20px rgba(0, 102, 204, 0.2);
-        margin-top: 5px;
     }
     
-    /* Moldura da matriz de LED - idêntica à imagem em azul */
+    /* Moldura da matriz de LED */
     .led-matrix-frame {
         width: 100%;
         max-width: 550px;
@@ -51,7 +49,6 @@ st.markdown("""
         margin-bottom: 15px;
     }
     
-    /* Indicador visual de LED azul apagado para design */
     .led-placeholder-text {
         color: #134074;
         font-family: 'Courier New', monospace;
@@ -59,101 +56,101 @@ st.markdown("""
         letter-spacing: 3px;
     }
     
-    /* TICKER - Barra inferior de rolagem contínua para placares ao vivo */
-    .ticker-wrap {
+    /* ================================================================= */
+    /* NOVO TICKER: LETREIRO DE LED EM MATRIZ DE PONTOS (RODAPÉ)        */
+    /* ================================================================= */
+    .led-ticker-container {
         width: 100%;
         overflow: hidden;
-        background-color: #020617;
-        border: 1px solid #0B2545;
-        border-radius: 6px;
-        padding: 10px 0;
-        margin-top: 15px;
+        background-color: #000000; /* Fundo totalmente preto do painel físico */
+        border: 3px solid #134074; /* Moldura de ferro do painel */
+        border-radius: 4px;
+        padding: 12px 0;
+        margin-top: 20px;
+        position: relative;
+        box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
     }
-    
-    .ticker {
+
+    /* Máscara de linhas/pontos para simular a grade física dos LEDs por cima do texto */
+    .led-ticker-container::before {
+        content: " ";
+        display: block;
+        position: absolute;
+        top: 0; left: 0; bottom: 0; right: 0;
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.4) 50%), 
+                    linear-gradient(90deg, rgba(255, 0, 0, 0), rgba(0, 0, 0, 0.6));
+        background-size: 100% 3px, 3px 100%; /* Tamanho dos "pixels" de LED */
+        z-index: 10;
+        pointer-events: none;
+    }
+
+    .led-ticker-text {
         display: flex;
         white-space: nowrap;
         padding-left: 100%;
-        animation: ticker 25s linear infinite;
+        animation: led-scroll 20s linear infinite;
     }
-    
-    .ticker__item {
+
+    /* Estilização da fonte imitando lâmpadas de LED acesas */
+    .led-game {
         display: inline-block;
-        padding: 0 2rem;
-        font-size: 1.1rem;
-        font-family: 'Courier New', monospace;
-        color: #00D2FF; /* Azul neon para os placares */
-        font-weight: bold;
+        padding: 0 3rem;
+        font-size: 1.6rem;
+        /* Uso de fontes mono que lembram placas eletrônicas */
+        font-family: 'Lucida Console', 'Courier New', monospace; 
+        font-weight: 900;
+        color: #00D2FF; /* Azul sinaleira */
+        text-shadow: 0 0 8px #00D2FF, 0 0 20px #134074; /* Brilho de lâmpada acesa */
+        letter-spacing: 4px;
     }
-    
-    /* Animação CSS para mover os placares de forma fluida da direita para a esquerda */
-    @keyframes ticker {
+
+    @keyframes led-scroll {
         0% { transform: translate3d(0, 0, 0); }
         100% { transform: translate3d(-100%, 0, 0); }
     }
-    
-    /* Customização estética do botão Atualizar */
+    /* ================================================================= */
+
     .stButton>button {
         background-color: #134074 !important;
         color: #FFFFFF !important;
         border: 1px solid #00D2FF !important;
         font-family: 'Courier New', monospace !important;
         font-weight: bold !important;
-        letter-spacing: 1px;
-    }
-    .stButton>button:hover {
-        background-color: #1E5596 !important;
-        box-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
     }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# BARRA LATERAL (SIDEBAR) - Filtros de Dados
+# BARRA LATERAL (SIDEBAR)
 # ==========================================
 with st.sidebar:
     st.markdown("<h2 style='color: #00D2FF;'>CLUB CRESTS</h2>", unsafe_allow_html=True)
-    
-    # Campo de busca estrutural
     search_query = st.text_input("Search...", placeholder="Filtrar clube...")
-    
     st.markdown("<hr style='border-color: #0B2545;'>", unsafe_allow_html=True)
     
-    # NOVO: Seletor de Campeonato (Todos com participação brasileira)
     st.markdown("<h3 style='color: #FFFFFF;'>CAMPEONATO</h3>", unsafe_allow_html=True)
-    campeonatos = [
-        "Brasileirão Série A",
-        "Brasileirão Série B",
-        "Copa do Brasil",
-        "Conmebol Libertadores",
-        "Conmebol Sul-Americana",
-        "Campeonato Estadual"
-    ]
+    campeonatos = ["Brasileirão Série A", "Brasileirão Série B", "Copa do Brasil", "Conmebol Libertadores"]
     selected_championship = st.selectbox("Escolha a competição:", campeonatos, label_visibility="collapsed")
     
     st.markdown("<hr style='border-color: #0B2545;'>", unsafe_allow_html=True)
     st.markdown("<h3 style='color: #FFFFFF;'>SELECTABLE</h3>", unsafe_allow_html=True)
-    
-    # Mock de times baseado no modelo Multi-Time
     mock_clubs = ["Clube de Regatas do Flamengo", "Fluminense Football Club", "Sport Club Corinthians Paulista"]
     selected_club = st.radio("Disponíveis:", mock_clubs, label_visibility="collapsed")
 
-
 # ==========================================
-# CORPO PRINCIPAL - Layout Centralizado Azul
+# CORPO PRINCIPAL
 # ==========================================
-
 st.markdown("<h1 style='color: #00D2FF; font-family: monospace; font-size: 24px;'>TERMINAL K97 // LED MATRIX DISPLAY</h1>", unsafe_allow_html=True)
 
 with st.container():
     st.markdown('<div class="main-display-container">', unsafe_allow_html=True)
     
-    # Moldura Central da Matriz de LEDs
+    # Painel Central
     st.markdown('<div class="led-matrix-frame">', unsafe_allow_html=True)
     st.markdown('<span class="led-placeholder-text">[ BLUE LED MATRIX ENGINE ]</span>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Metadados Informativos Estáticos (Front-end)
+    # Informações de Metadados
     info_cols = st.columns(3)
     with info_cols[0]:
         st.markdown(f"<p style='color: #E2E8F0; text-align: left; font-family: monospace;'>Comp: {selected_championship}</p>", unsafe_allow_html=True)
@@ -163,27 +160,24 @@ with st.container():
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         st.markdown(f"<p style='color: #E2E8F0; text-align: right; font-family: monospace;'>Última Atualização: {current_time}</p>", unsafe_allow_html=True)
     
-    # Botão de comando centralizado
+    # Botão Atualizar
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("ATUALIZAR", use_container_width=False):
         pass
         
-    # NOVO: Ticker de Placares ao Vivo (Estrutura pura em CSS no Front-End)
-    st.markdown('<div class="ticker-wrap">', unsafe_allow_html=True)
-    st.markdown('<div class="ticker">', unsafe_allow_html=True)
+    # LETREIRO DE LED FÍSICO COM TEXTURA DE PONTOS NO RODAPÉ
+    st.markdown('<div class="led-ticker-container">', unsafe_allow_html=True)
+    st.markdown('<div class="led-ticker-text">', unsafe_allow_html=True)
     
-    # Itens do ticker simulando dados de jogos ao vivo de times brasileiros
-    st.markdown('<div class="ticker__item">🔴 FLA 2 x 0 PAL (AO VIVO)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="ticker__item">🔴 FLU 1 x 1 COR (AO VIVO)</div>', unsafe_allow_html=True)
-    st.markdown('<div class="ticker__item">⚪ REPI: CAI 0 x 2 CRU</div>', unsafe_allow_html=True)
-    st.markdown('<div class="ticker__item">⚪ PROX: SÃO vs INT (21:45)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="led-game">FLA 2 . 0 PAL [AO VIVO]</div>', unsafe_allow_html=True)
+    st.markdown('<div class="led-game">FLU 1 . 1 COR [AO VIVO]</div>', unsafe_allow_html=True)
+    st.markdown('<div class="led-game">SÃO 0 . 0 INT [PROX JOGO]</div>', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Rodapé Técnico de Status
+# Status do Sistema
 st.markdown("<br><hr style='border-color: #0B2545;'>", unsafe_allow_html=True)
 st.markdown(f"<p style='color: #00D2FF; font-family: monospace; margin-bottom: 2px;'>PAINEL DIGITAL DE ESCUDOS - {selected_club.upper()}</p>", unsafe_allow_html=True)
-st.markdown("<p style='color: #E2E8F0; font-family: monospace;'>STATUS: <span style='color: #FF9F00;'>ATIVO (AGUARDANDO MÓDULO DE LED E DATA-FEED)</span> | FONTE: API GitHub</p>", unsafe_allow_html=True)
