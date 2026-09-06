@@ -171,7 +171,7 @@ menu = st.sidebar.radio(
 )
 
 if menu == "🏎️ Telemetria ao Vivo":
-    st.title("🏎️ F1 Pro - Telemetria e Torre de Tempos")
+    st.title("🏎️ F1 Pro Telemetry & Timing Tower")
 
     @st.cache_data(ttl=15)
     def get_latest_session():
@@ -193,62 +193,26 @@ if menu == "🏎️ Telemetria ao Vivo":
         session_key = None
         st.sidebar.warning("Nenhuma sessão ao vivo encontrada.")
 
-    col1, col2 = st.columns([1.5, 1.5])
+    col1, col2 = st.columns([1.4, 1.6])
 
     with col1:
-        st.subheader("Circuito em Tempo Real (Horizontal)")
-        
-        track_html = r"""
-        <div style="position:relative; width:100%; height:340px; background:#ffffff; border-radius:12px; border:2px solid #cbd5e1; box-shadow: 0 4px 15px rgba(0,0,0,0.15); overflow:hidden;">
-            <canvas id="f1Canvas" width="700" height="340" style="width:100%; height:100%;"></canvas>
+        st.subheader("Circuito em Tempo Real")
+        try:
+            with open("static/tracker.js", "r", encoding="utf-8") as f:
+                js_code = f.read()
+        except FileNotFoundError:
+            js_code = "// tracker.js não encontrado"
+
+        track_html = f"""
+        <div class="track-container" style="position:relative; width:100%; height:520px; background:#0b0e14; border-radius:12px; border:1px solid #1f2a3a; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
+            <canvas id="f1Canvas" style="width:100%; height:100%;"></canvas>
         </div>
         <script>
-            const canvas = document.getElementById('f1Canvas');
-            const ctx = canvas.getContext('2d');
-            
-            function drawHorizontalTrack() {
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                // Desenho da pista (preto)
-                ctx.beginPath();
-                ctx.strokeStyle = '#111111';
-                ctx.lineWidth = 42;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                ctx.moveTo(100, 170);
-                ctx.bezierCurveTo(100, 40, 350, 40, 450, 170);
-                ctx.bezierCurveTo(550, 300, 600, 80, 600, 170);
-                ctx.bezierCurveTo(600, 260, 350, 300, 100, 170);
-                ctx.stroke();
-
-                // Linha central tracejada branca
-                ctx.beginPath();
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([8, 8]);
-                ctx.moveTo(100, 170);
-                ctx.bezierCurveTo(100, 40, 350, 40, 450, 170);
-                ctx.bezierCurveTo(550, 300, 600, 80, 600, 170);
-                ctx.bezierCurveTo(600, 260, 350, 300, 100, 170);
-                ctx.stroke();
-                ctx.setLineDash([]);
-
-                // Linha de Largada / Chegada
-                ctx.fillStyle = '#e10600';
-                ctx.fillRect(90, 150, 8, 40);
-
-                // Marcações de Setores
-                ctx.fillStyle = '#2563eb';
-                ctx.font = 'bold 11px sans-serif';
-                ctx.fillText("SETOR 1", 260, 50);
-                ctx.fillText("SETOR 2", 520, 120);
-                ctx.fillText("SETOR 3", 330, 285);
-            }
-            drawHorizontalTrack();
+            window.sessionKey = "{session_key}";
+            {js_code}
         </script>
         """
-        st.components.v1.html(track_html, height=360)
+        st.components.v1.html(track_html, height=540)
 
     with col2:
         st.subheader("Torre de Tempos & Segundos")
@@ -332,7 +296,6 @@ if menu == "🏎️ Telemetria ao Vivo":
                         team = driver.get("team_name", "Desconhecida")
                         position = pos_map.get(d_num, 99)
                         compound = tires_map.get(d_num, "N/A")
-                        badge = get_team_badge(team)
                         
                         comp_upper = compound.upper()
                         if "SOFT" in comp_upper:
@@ -349,7 +312,6 @@ if menu == "🏎️ Telemetria ao Vivo":
                             "Nº": d_num,
                             "Piloto": acronym,
                             "Equipe": team,
-                            "Badge": badge,
                             "Pneu": tyre_letter,
                             "TyreClass": tyre_class,
                             "Intervalo": interval_map.get(d_num, "LEADER" if position == 1 else "-"),
@@ -360,13 +322,13 @@ if menu == "🏎️ Telemetria ao Vivo":
                     df_display = pd.DataFrame(table_data)
                     df_display = df_display.sort_values(by="Pos").reset_index(drop=True)
                     
+                    # Renderização correta em blocos (Evitando quebra de markdown)
                     st.markdown('<div class="timing-container">', unsafe_allow_html=True)
                     for _, row in df_display.iterrows():
                         pos = row["Pos"]
                         pos_class = "timing-pos-1" if pos == 1 else ("timing-pos-2" if pos == 2 or pos == 3 else "")
                         pilot = row["Piloto"]
                         team = row["Equipe"]
-                        badge = row["Badge"]
                         tyre = row["Pneu"]
                         t_class = row["TyreClass"]
                         lap_time = row["Melhor Volta"]
@@ -382,7 +344,6 @@ if menu == "🏎️ Telemetria ao Vivo":
                             <div class="timing-left">
                                 <div class="timing-pos">{pos}</div>
                                 <div class="tyre-badge {t_class}">{tyre}</div>
-                                <div style="font-size:1rem;">{badge}</div>
                                 <div>
                                     <div class="timing-driver">{pilot}</div>
                                     <div class="timing-team">{team}</div>
