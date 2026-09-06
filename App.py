@@ -42,7 +42,6 @@ if not df_sessions.empty:
     
     st.subheader(f"Painel Oficial - {selected_circuit} ({selected_year}) - {selected_session_name}")
     
-    # Inicializando o estado da sessão para evitar o reset ao clicar em botões internos
     if 'loaded_session_key' not in st.session_state:
         st.session_state.loaded_session_key = None
 
@@ -59,39 +58,61 @@ if not df_sessions.empty:
                 pos_data = pos_res.json()
                 drv_data = drv_res.json() if drv_res.status_code == 200 else []
                 
+                df_loc = pd.DataFrame(loc_data)
+                df_loc['date'] = pd.to_datetime(df_loc['date'])
+                
                 col1, col2 = st.columns([2, 1])
                 
                 with col1:
-                    st.markdown("### 🗺️ Mapa do Circuito")
-                    if loc_data:
-                        df_loc = pd.DataFrame(loc_data)
+                    st.markdown("### 🗺️ Mapa do Circuito Interativo")
+                    if not df_loc.empty:
                         sample_driver = df_loc['driver_number'].iloc[0]
                         df_track = df_loc[df_loc['driver_number'] == sample_driver]
-                        df_latest_loc = df_loc.sort_values(by='date').groupby('driver_number').tail(1)
                         
+                        # Criando um slider de tempo baseado nos registros da pista
+                        min_time = df_loc['date'].min()
+                        max_time = df_loc['date'].max()
+                        
+                        # Seletor de momento na sessão
+                        selected_time = st.slider(
+                            "Arraste para mover os carros na pista:",
+                            min_value=min_time.to_pydatetime(),
+                            max_value=max_time.to_pydatetime(),
+                            value=min_time.to_pydatetime(),
+                            format="HH:mm:ss"
+                        )
+                        
+                        # Filtrar posições próximas ao timestamp escolhido (janela de 1 segundo)
+                        time_window_end = pd.to_datetime(selected_time) + pd.Timedelta(seconds=1)
+                        df_filtered_loc = df_loc[(df_loc['date'] >= pd.to_datetime(selected_time)) & (df_loc['date'] <= time_window_end)]
+                        df_current_loc = df_filtered_loc.sort_values(by='date').groupby('driver_number').tail(1)
+                        
+                        if df_current_loc.empty:
+                            df_current_loc = df_loc.sort_values(by='date').groupby('driver_number').tail(1)
+
                         if drv_data:
                             df_drv = pd.DataFrame(drv_data)
-                            df_latest_loc = pd.merge(df_latest_loc, df_drv[['driver_number', 'name_acronym', 'team_colour']], on='driver_number', how='left')
-                            df_latest_loc['team_colour'] = df_latest_loc['team_colour'].apply(lambda c: f"#{c}" if c and not str(c).startswith('#') else (c if c else "FFFFFF"))
+                            df_current_loc = pd.merge(df_current_loc, df_drv[['driver_number', 'name_acronym', 'team_colour']], on='driver_number', how='left')
+                            df_current_loc['team_colour'] = df_current_loc['team_colour'].apply(lambda c: f"#{c}" if c and not str(c).startswith('#') else (c if c else "FFFFFF"))
                         else:
-                            df_latest_loc['name_acronym'] = df_latest_loc['driver_number'].astype(str)
-                            df_latest_loc['team_colour'] = "red"
+                            df_current_loc['name_acronym'] = df_current_loc['driver_number'].astype(str)
+                            df_current_loc['team_colour'] = "red"
                         
                         fig = px.scatter(
                             df_track, x='x', y='y',
                             opacity=0.15,
-                            height=500
+                            height=450
                         )
                         
                         fig.add_scatter(
-                            x=df_latest_loc['x'],
-                            y=df_latest_loc['y'],
+                            x=df_current_loc['x'],
+                            y=df_current_loc['y'],
                             mode='markers+text',
-                            text=df_latest_loc['name_acronym'],
+                            text=df_current_loc['name_acronym'],
                             textposition="top center",
                             marker=dict(
                                 size=12, 
-                                color=df_latest_loc['team_colour'] if 'team_colour' in df_latest_loc.columns else 'red'
+                                color=df_current_loc['team_colour'] if 'team_colour' in df_current_loc.columns else 'red'
                             ),
                             name='Carros'
                         )
@@ -106,7 +127,7 @@ if not df_sessions.empty:
                         )
                         st.plotly_chart(fig, use_container_width=True)
                     else:
-                        st.warning("Sem dados de localização para esta sessão.")
+                        st.warning("Sem dados de localização.")
                 
                 with col2:
                     st.markdown("### 📊 Classificação")
@@ -123,13 +144,12 @@ if not df_sessions.empty:
                         if 'position' in df_table.columns:
                             df_table = df_table.sort_values(by='position')
                             cols_to_show = ['position', 'driver_number', 'name_acronym', 'team_name'] if 'name_acronym' in df_table.columns else ['position', 'driver_number']
-                            st.dataframe(df_table[cols_to_show], hide_index=True, use_container_width=True, height=500)
+                            st.dataframe(df_table[cols_to_show], hide_index=True, use_container_width=True, height=450)
                         else:
-                            st.dataframe(df_table, use_container_width=True, height=500)
+                            st.dataframe(df_table, use_container_width=True, height=450)
                     else:
                         st.warning("Sem dados de posições.")
                 
-                # Seção de Telemetria por Piloto
                 st.markdown("---")
                 st.markdown("### 📈 Telemetria de Velocidade por Piloto")
                 if drv_data:
