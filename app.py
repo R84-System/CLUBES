@@ -2,9 +2,9 @@ import streamlit as st
 import requests
 import pandas as pd
 
-st.set_page_config(page_title="F1 Pro Dashboard - F1TV Style", layout="wide")
+st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
 
-# Estilos CSS Avançados (F1 TV Style com fundo claro para o circuito horizontal)
+# Estilos CSS Avançados para Layout Profissional (F1 TV Style & Cards)
 st.markdown("""
 <style>
     .stApp {
@@ -18,6 +18,12 @@ st.markdown("""
         padding: 16px;
         margin-bottom: 12px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        transition: all 0.3s ease;
+    }
+    .f1-card:hover {
+        border-color: #e10600;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(225,6,0,0.2);
     }
     .podium-1 { border-left: 6px solid #ffd700; }
     .podium-2 { border-left: 6px solid #c0c0c0; }
@@ -45,41 +51,6 @@ st.markdown("""
         letter-spacing: 0.5px;
     }
 
-    /* Alerta de Safety Car / Bandeiras */
-    .alert-sc {
-        background: #f59e0b;
-        color: #000000;
-        padding: 12px 20px;
-        border-radius: 8px;
-        font-weight: 900;
-        text-align: center;
-        font-size: 1.1rem;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
-        animation: pulse 1.5s infinite;
-    }
-    .alert-red {
-        background: #dc2626;
-        color: #ffffff;
-        padding: 12px 20px;
-        border-radius: 8px;
-        font-weight: 900;
-        text-align: center;
-        font-size: 1.1rem;
-        margin-bottom: 15px;
-    }
-    .alert-checkered {
-        background: #ffffff;
-        color: #000000;
-        padding: 12px 20px;
-        border-radius: 8px;
-        font-weight: 900;
-        text-align: center;
-        font-size: 1.1rem;
-        margin-bottom: 15px;
-        border: 2px dashed #000;
-    }
-
     /* Estilo F1 TV Timing Tower Cards */
     .timing-container {
         max-height: 520px;
@@ -104,7 +75,7 @@ st.markdown("""
     .timing-left {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
     }
     .timing-pos {
         background: #1f2a3a;
@@ -119,20 +90,20 @@ st.markdown("""
     .timing-driver {
         font-weight: 800;
         color: #ffffff;
-        font-size: 0.95rem;
+        font-size: 1rem;
         letter-spacing: 0.5px;
     }
     .timing-team {
         color: #94a3b8;
-        font-size: 0.7rem;
+        font-size: 0.75rem;
     }
     .tyre-badge {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         font-weight: 800;
         padding: 2px 6px;
         border-radius: 3px;
         text-align: center;
-        min-width: 20px;
+        min-width: 18px;
     }
     .tyre-soft { background: #da291c; color: #ffffff; }
     .tyre-medium { background: #ffd100; color: #000000; }
@@ -145,17 +116,16 @@ st.markdown("""
     .timing-time {
         font-weight: 700;
         color: #f1f5f9;
-        font-size: 0.85rem;
+        font-size: 0.9rem;
     }
     .timing-gap {
         font-size: 0.75rem;
-        color: #38bdf8;
-        font-weight: 600;
+        color: #94a3b8;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Mapeamentos
+# Mapeamento de Bandeiras por Nacionalidade
 def get_driver_flag(nationality):
     flags = {
         "British": "🇬🇧", "Dutch": "🇳🇱", "Monegasque": "🇲🇨", "Spanish": "🇪🇸",
@@ -167,18 +137,19 @@ def get_driver_flag(nationality):
     }
     return flags.get(nationality, "🏁")
 
+# Mapeamento de Escudos/Ícones por Equipe
 def get_team_badge(team_name):
     badges = {
-        "Ferrari": "🔴", "Red Bull": "🔵", "Mercedes": "⭐", "McLaren": "🟠",
-        "Aston Martin": "💚", "Alpine": "💙", "Williams": "🔷", "RB": "⚪",
-        "Kick Sauber": "🟢", "Haas F1 Team": "⬜", "Audi": "🩶"
+        "Ferrari": "🔴 🐎", "Red Bull": "🔵 🐂", "Mercedes": "⬛ ⭐️", "McLaren": "🟠 🏎️",
+        "Aston Martin": "💚 🏎️", "Alpine": "💙 🇫🇷", "Williams": "🔷 🇬🇧", "RB": "⚪ 🏎️",
+        "Kick Sauber": "🟢 🇨🇭", "Haas F1 Team": "⬜ 🇺🇸", "Audi": "🩶 🇩🇪"
     }
     for key, badge in badges.items():
         if key.lower() in team_name.lower():
             return badge
-    return "🏎️"
+    return "🏎️ F1"
 
-# Menu Lateral
+# Menu Lateral de Navegação
 st.sidebar.title("🏁 F1 Hub Pro")
 menu = st.sidebar.radio(
     "Navegação",
@@ -186,7 +157,7 @@ menu = st.sidebar.radio(
 )
 
 if menu == "🏎️ Telemetria ao Vivo":
-    st.title("🏎️ F1 Pro - Telemetria e Torre de Tempos")
+    st.title("🏎️ F1 Pro Telemetry & Timing Tower")
 
     @st.cache_data(ttl=15)
     def get_latest_session():
@@ -208,87 +179,29 @@ if menu == "🏎️ Telemetria ao Vivo":
         session_key = None
         st.sidebar.warning("Nenhuma sessão ao vivo encontrada.")
 
-    # Verificação de Safety Car / Bandeiras via Race Control API
-    if session_key:
+    col1, col2 = st.columns([1.4, 1.6])
+
+    with col1:
+        st.subheader("Circuito em Tempo Real")
         try:
-            rc_res = requests.get(f"https://api.openf1.org/v1/race_control?session_key={session_key}").json()
-            if rc_res and isinstance(rc_res, list) and len(rc_res) > 0:
-                latest_rc = rc_res[-1]
-                msg = latest_rc.get("message", "").upper()
-                flag = latest_rc.get("flag", "").upper()
-                
-                if "SAFETY CAR" in msg or "VSC" in msg or flag == "SAFETY CAR":
-                    st.markdown(f'<div class="alert-sc">⚠️ ALERTA: {msg}</div>', unsafe_allow_html=True)
-                elif flag == "RED":
-                    st.markdown(f'<div class="alert-red">🔴 BANDEIRA VERMELHA - SESSÃO PARALISADA</div>', unsafe_allow_html=True)
-                elif flag == "CHECKERED":
-                    st.markdown(f'<div class="alert-checkered">🏁 BANDEIRA QUADRICULADA - FIM DE SESSÃO!</div>', unsafe_allow_html=True)
-                elif flag == "YELLOW":
-                    st.markdown(f'<div class="alert-sc" style="background:#eab308;">🟡 BANDEIRA AMARELA NO CIRCUITO</div>', unsafe_allow_html=True)
-        except:
-            pass
+            with open("static/tracker.js", "r", encoding="utf-8") as f:
+                js_code = f.read()
+        except FileNotFoundError:
+            js_code = "// tracker.js não encontrado"
 
-    # Layout Principal: Circuito Horizontal em cima/esquerda e Torre ao lado
-    col_circuit, col_tower = st.columns([1.6, 1.4])
-
-    with col_circuit:
-        st.subheader("Circuito em Tempo Real (Horizontal)")
-        
-        # HTML + Canvas para o Circuito Fundo Branco, Pista Preta com Linha Branca no Meio
         track_html = f"""
-        <div style="position:relative; width:100%; height:320px; background:#ffffff; border-radius:12px; border:2px solid #cbd5e1; box-shadow: 0 4px 15px rgba(0,0,0,0.15); overflow:hidden;">
-            <canvas id="f1Canvas" width="700" height="320" style="width:100%; height:100%;"></canvas>
+        <div class="track-container" style="position:relative; width:100%; height:520px; background:#0b0e14; border-radius:12px; border:1px solid #1f2a3a; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
+            <canvas id="f1Canvas" style="width:100%; height:100%;"></canvas>
         </div>
         <script>
-            const canvas = document.getElementById('f1Canvas');
-            const ctx = canvas.getContext('2d');
-            
-            function drawHorizontalTrack() {
-                // Fundo Branco
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                // Desenho da Pista (Horizontal e Dupla/Larga) - Cor Preta
-                ctx.beginPath();
-                ctx.strokeStyle = '#111111';
-                ctx.lineWidth = 42;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                ctx.moveTo(100, 160);
-                ctx.bezierCurveTo(100, 40, 350, 40, 450, 160);
-                ctx.bezierCurveTo(550, 280, 600, 80, 600, 160);
-                ctx.bezierCurveTo(600, 240, 350, 280, 100, 160);
-                ctx.stroke();
-
-                // Linha Branca Fina no Meio da Pista
-                ctx.beginPath();
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([8, 8]);
-                ctx.moveTo(100, 160);
-                ctx.bezierCurveTo(100, 40, 350, 40, 450, 160);
-                ctx.bezierCurveTo(550, 280, 600, 80, 600, 160);
-                ctx.bezierCurveTo(600, 240, 350, 280, 100, 160);
-                ctx.stroke();
-                ctx.setLineDash([]);
-            }
-            drawHorizontalTrack();
+            window.sessionKey = "{session_key}";
+            {js_code}
         </script>
         """
-        st.components.v1.html(track_html, height=340)
+        st.components.v1.html(track_html, height=540)
 
-    with col_tower:
+    with col2:
         st.subheader("Torre de Tempos & Segundos")
-        
-        # Botão/Seletor para Alternar entre Intervalo (Carro da Frente) e Gap (Líder)
-        modo_tempo = st.radio(
-            "Visualizar diferença de tempo:",
-            ["Intervalo (Carro da Frente)", "Diferença para o Líder (Gap)"],
-            horizontal=True,
-            label_visibility="collapsed"
-        )
-        is_interval = (modo_tempo == "Intervalo (Carro da Frente)")
-
         if session_key:
             try:
                 drivers_res = requests.get(f"https://api.openf1.org/v1/drivers?session_key={session_key}").json()
@@ -297,20 +210,6 @@ if menu == "🏎️ Telemetria ao Vivo":
                 positions_res = requests.get(f"https://api.openf1.org/v1/position?session_key={session_key}").json()
                 laps_res = requests.get(f"https://api.openf1.org/v1/laps?session_key={session_key}").json()
                 
-                # Número de Voltas Atual
-                current_lap = "1"
-                if laps_res and isinstance(laps_res, list):
-                    df_laps = pd.DataFrame(laps_res)
-                    if not df_laps.empty and "lap_number" in df_laps.columns:
-                        current_lap = str(int(df_laps["lap_number"].max()))
-                
-                st.markdown(f"""
-                <div style="display: flex; justify-content: space-between; background: #121824; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #1f2a3a;">
-                    <span style="font-size: 0.85rem; color: #94a3b8;">Volta Atual:</span>
-                    <span style="font-size: 0.9rem; font-weight: 800; color: #38bdf8;">🏁 Volta {current_lap}</span>
-                </div>
-                """, unsafe_allow_html=True)
-
                 if drivers_res and isinstance(drivers_res, list):
                     tires_map = {}
                     if stints_res and isinstance(stints_res, list):
@@ -377,7 +276,6 @@ if menu == "🏎️ Telemetria ao Vivo":
                             "Nº": d_num,
                             "Piloto": acronym,
                             "Equipe": team,
-                            "Badge": get_team_badge(team),
                             "Pneu": tyre_letter,
                             "TyreClass": tyre_class,
                             "Intervalo": interval_map.get(d_num, "LEADER" if position == 1 else "-"),
@@ -388,24 +286,19 @@ if menu == "🏎️ Telemetria ao Vivo":
                     df_display = pd.DataFrame(table_data)
                     df_display = df_display.sort_values(by="Pos").reset_index(drop=True)
                     
-                    # Renderização em Blocos da Torre de Tempos
+                    # Renderização correta em blocos (Evitando quebra de markdown)
                     st.markdown('<div class="timing-container">', unsafe_allow_html=True)
                     for _, row in df_display.iterrows():
                         pos = row["Pos"]
                         pos_class = "timing-pos-1" if pos == 1 else ("timing-pos-2" if pos == 2 or pos == 3 else "")
                         pilot = row["Piloto"]
                         team = row["Equipe"]
-                        badge = row["Badge"]
                         tyre = row["Pneu"]
                         t_class = row["TyreClass"]
                         lap_time = row["Melhor Volta"]
+                        gap = row["Gap"]
                         
-                        # Escolhe o tempo exibido com base no botão interativo
-                        time_display = row["Intervalo"] if is_interval else row["Gap"]
-                        if pos == 1:
-                            time_display = "LEADER"
-
-                        row_html = f'<div class="timing-row {pos_class}"><div class="timing-left"><div class="timing-pos">{pos}</div><div class="tyre-badge {t_class}">{tyre}</div><div style="font-size:1.1rem;">{badge}</div><div><div class="timing-driver">{pilot}</div><div class="timing-team">{team}</div></div></div><div class="timing-right"><div class="timing-time">{lap_time}</div><div class="timing-gap">{time_display}</div></div></div>'
+                        row_html = f'<div class="timing-row {pos_class}"><div class="timing-left"><div class="timing-pos">{pos}</div><div class="tyre-badge {t_class}">{tyre}</div><div><div class="timing-driver">{pilot}</div><div class="timing-team">{team}</div></div></div><div class="timing-right"><div class="timing-time">{lap_time}</div><div class="timing-gap">{gap}</div></div></div>'
                         st.markdown(row_html, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
                 else:
@@ -417,6 +310,7 @@ if menu == "🏎️ Telemetria ao Vivo":
 
 elif menu == "🏆 Classificação do Campeonato":
     st.title("🏆 Classificação do Campeonato Mundial")
+    
     tab1, tab2 = st.tabs(["Pilotos", "Construtores"])
     
     with tab1:
