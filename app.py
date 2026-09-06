@@ -4,37 +4,57 @@ import pandas as pd
 
 st.set_page_config(page_title="F1 Live Dashboard", layout="wide")
 
-st.title("🏎️ F1 Live Dashboard - MultiViewer Style")
-st.markdown("Painel de telemetria e posições em tempo real.")
-
 # Carrega o CSS externo
-with open("static/style.css") as f:
-    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+try:
+    with open("static/style.css") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+except FileNotFoundError:
+    pass
 
-# Layout principal dividindo Mapa e Tabela de Posições
+st.title("🏎️ F1 Live Dashboard - OpenF1 API")
+
+@st.cache_data(ttl=60)
+data = requests.get("https://api.openf1.org/v1/sessions?session_key=latest").json()
+if data:
+    latest_session = data[0]
+    session_key = latest_session["session_key"]
+    st.sidebar.success(f"Sessão Conectada: {latest_session.get('circuit_short_name', 'F1')} ({latest_session.get('year', '')})")
+else:
+    session_key = latest_session = None
+    st.sidebar.warning("Nenhuma sessão ao vivo encontrada no momento.")
+
 col1, col2 = st.columns([2, 1])
 
 with col1:
     st.subheader("Circuito em Tempo Real")
-    # Injeta o HTML e o script JS do mapa
-    with open("static/tracker.js") as f:
-        js_code = f.read()
     
+    # Lê o tracker.js e injeta no componente web
+    try:
+        with open("static/tracker.js", "r", encoding="utf-8") as f:
+            js_code = f.read()
+    except FileNotFoundError:
+        js_code = "// tracker.js não encontrado"
+
     track_html = f"""
-    <div class="track-container">
-        <canvas id="f1Canvas"></canvas>
+    <div class="track-container" style="position:relative; width:100%; height:500px; background:#151820; border-radius:8px;">
+        <canvas id="f1Canvas" style="width:100%; height:100%;"></canvas>
     </div>
-    <script>{js_code}</script>
+    <script>
+        const sessionKey = "{session_key}";
+        {js_code}
+    </script>
     """
     st.components.v1.html(track_html, height=520)
 
 with col2:
-    st.subheader("Posições & Pneus")
-    # Exemplo de tabela mockada/inicial para teste
-    df_drivers = pd.DataFrame({
-        "Pos": [1, 2, 3],
-        "Piloto": ["VER", "HAM", "LEC"],
-        "Pneu": ["SOFT", "MEDIUM", "HARD"],
-        "Box": ["Não", "Não", "Sim"]
-    })
-    st.dataframe(df_drivers, hide_index=True, use_container_width=True)
+    st.subheader("Posições & Pilotos")
+    if session_key:
+        drivers_res = requests.get(f"https://api.openf1.org/v1/drivers?session_key={session_key}").json()
+        if drivers_res:
+            df_drivers = pd.DataFrame(drivers_res)[["driver_number", "name_acronym", "team_name"]]
+            df_drivers.columns = ["Número", "Sigla", "Equipe"]
+            st.dataframe(df_drivers, hide_index=True, use_container_width=True)
+        else:
+            st.info("Aguardando dados de pilotos para esta sessão.")
+    else:
+        st.info("Conecte a uma sessão válida para ver os pilotos.")
