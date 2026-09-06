@@ -23,7 +23,7 @@ def get_latest_session():
 
 data = get_latest_session()
 
-if data:
+if data and len(data) > 0:
     latest_session = data[0]
     session_key = latest_session.get("session_key")
     circuit_name = latest_session.get('circuit_short_name', 'F1')
@@ -58,60 +58,65 @@ with col2:
     st.subheader("Torre de Tempos & Segundos")
     if session_key:
         try:
-            # Requisições em paralelo na OpenF1
+            # Requisições para a API OpenF1
             drivers_res = requests.get(f"https://api.openf1.org/v1/drivers?session_key={session_key}").json()
             stints_res = requests.get(f"https://api.openf1.org/v1/stints?session_key={session_key}").json()
             intervals_res = requests.get(f"https://api.openf1.org/v1/intervals?session_key={session_key}").json()
             laps_res = requests.get(f"https://api.openf1.org/v1/laps?session_key={session_key}").json()
             
-            if drivers_res:
-                df_drivers = pd.DataFrame(drivers_res)
-                
-                # 1. Pneus (Stints recentes)
+            if drivers_res and isinstance(drivers_res, list):
+                # 1. Mapear Pneus
                 tires_map = {}
-                if stints_res:
-                    df_stints = pd.DataFrame(stints_res)
-                    if not df_stints.empty and "stint_number" in df_stints.columns:
-                        df_stints = df_stints.sort_values("stint_number")
-                        for _, row in df_stints.iterrows():
-                            tires_map[row["driver_number"]] = row.get("compound", "UNKNOWN")
+                if stints_res and isinstance(stints_res, list):
+                    for s in stints_res:
+                        d_num = s.get("driver_number")
+                        if d_num:
+                            tires_map[d_num] = s.get("compound", "N/A")
                 
-                # 2. Gaps e Intervalos em segundos
+                # 2. Mapear Intervalos e Gaps
                 interval_map = {}
                 gap_map = {}
-                if intervals_res:
-                    df_intervals = pd.DataFrame(intervals_res)
-                    if not df_intervals.empty:
-                        df_intervals = df_intervals.drop_duplicates(subset=["driver_number"], keep="last")
-                        for _, row in df_intervals.iterrows():
-                            d_num = row["driver_number"]
-                            interval_map[d_num] = f"+{row['interval']}s" if row.get('interval') is not None else "LEADER"
-                            gap_map[d_num] = f"+{row['gap_to_leader']}s" if row.get('gap_to_leader') is not None else "LEADER"
+                if intervals_res and isinstance(intervals_res, list):
+                    for row in intervals_res:
+                        d_num = row.get("driver_number")
+                        if d_num:
+                            inter = row.get('interval')
+                            gap = row.get('gap_to_leader')
+                            interval_map[d_num] = f"+{inter}s" if inter is not None else "LEADER"
+                            gap_map[d_num] = f"+{gap}s" if gap is not None else "LEADER"
                 
-                # 3. Melhor Volta em segundos formatados
+                # 3. Mapear Melhores Voltas
                 best_lap_map = {}
-                if laps_res:
+                if laps_res and isinstance(laps_res, list):
                     df_laps = pd.DataFrame(laps_res)
-                    if not df_laps.empty and "lap_duration" in df_laps.columns:
-                        df_valid_laps = df_laps.dropna(subset=["lap_duration"])
-                        if not df_valid_laps.empty:
-                            idx_min = df_valid_laps.groupby("driver_number")["lap_duration"].idxmin()
-                            best_laps = df_valid_laps.loc[idx_min]
-                            for _, row in best_laps.iterrows():
-                                secs = row["lap_duration"]
-                                mins = int(secs // 60)
-                                remaining = secs % 60
-                                best_lap_map[row["driver_number"]] = f"{mins}:{remaining:06.3f}" if mins > 0 else f"{remaining:06.3f}"
+                    if not df_laps.empty and "lap_duration" in df_laps.columns and "driver_number" in df_laps.columns:
+                        df_valid = df_laps.dropna(subset=["lap_duration"])
+                        if not df_valid.empty:
+                            for d_num, group in df_valid.groupby("driver_number"):
+                                min_duration = group["lap_duration"].min()
+                                mins = int(min_duration // 60)
+                                remaining = min_duration % 60
+                                time_str = f"{mins}:{remaining:06.3f}" if mins > 0 else f"{remaining:06.3f}"
+                                best_lap_map[d_num] = time_str
+
+                # 4. Construir dados da tabela com segurança linha por linha
+                table_data = []
+                for driver in drivers_res:
+                    d_num = driver.get("driver_number")
+                    acronym = driver.get("name_acronym", str(d_num))
+                    team = driver.get("team_name", "Desconhecida")
+                    
+                    table_data.append({
+                        "Nº": d_num,
+                        "Piloto": acronym,
+                        "Equipe": team,
+                        "Pneu": tires_map.get(d_num, "N/A"),
+                        "Intervalo": interval_map.get(d_num, "-"),
+                        "Gap": gap_map.get(d_num, "-"),
+                        "Melhor Volta": best_lap_map.get(d_num, "-")
+                    })
                 
-                # Mesclando dados na tabela
-                df_drivers["Pneu"] = df_drivers["driver_number"].map(tires_map).fillna("N/A")
-                df_drivers["Intervalo"] = df_drivers["driver_number"].map(interval_map).fillna("-")
-                df_drivers["Gap"] = df_drivers["driver_number"].map(gap_map).fillna("-")
-                df_drivers["Melhor Volta"] = df_drivers["driver_number"].map(best_lap_map).fillna("-")
-                
-                df_display = df_drivers[["driver_number", "name_acronym", "team_name", "Pneu", "Intervalo", "Gap", "Melhor Volta"]].copy()
-                df_display.columns = ["Nº", "Piloto", "Equipe", "Pneu", "Intervalo", "Gap", "Melhor Volta"]
-                
+                df_display = pd.DataFrame(table_data)
                 st.dataframe(df_display, hide_index=True, use_container_width=True, height=500)
             else:
                 st.info("Aguardando dados dos pilotos...")
