@@ -281,73 +281,68 @@ if menu == "🏎️ Telemetria ao Vivo":
     with col1:
         st.subheader(f"Circuito em Tempo Real ({circuit_name})")
         
-        # Script JS integrado que puxa as coordenadas reais (X, Y) do OpenF1 para desenhar a pista e mover os carros em tempo real
-        track_html = f"""
+        # Script JS integrado utilizando template seguro (sem conflito de f-string)
+        track_html_template = """
         <div class="track-container" style="position:relative; width:100%; height:520px; background:#0b0e14; border-radius:12px; border:1px solid #1f2a3a; box-shadow: 0 4px 15px rgba(0,0,0,0.4); overflow:hidden;">
             <canvas id="f1Canvas" style="width:100%; height:100%; display:block;"></canvas>
             <div id="trackStatus" style="position:absolute; bottom:12px; left:12px; background:rgba(11,14,20,0.85); border:1px solid #1f2a3a; padding:6px 12px; border-radius:6px; font-size:11px; color:#38bdf8; font-family:sans-serif;">Carregando traçado real da pista...</div>
         </div>
         <script>
-            window.sessionKey = "{session_key}";
+            window.sessionKey = "SESSION_KEY_VAL";
             const canvas = document.getElementById('f1Canvas');
             const statusDiv = document.getElementById('trackStatus');
             
-            if (canvas) {{
+            if (canvas) {
                 const ctx = canvas.getContext('2d');
                 let trackPoints = [];
-                let carPositions = {{}};
+                let carPositions = {};
                 
-                function resize() {{
+                function resize() {
                     canvas.width = canvas.parentElement.clientWidth;
                     canvas.height = canvas.parentElement.clientHeight;
-                }}
+                }
                 window.addEventListener('resize', resize);
                 resize();
 
-                // Buscar traçado e posições da API do OpenF1 em tempo real
-                async function fetchTrackData() {{
-                    if (!window.sessionKey || window.sessionKey === "None") {{
+                async function fetchTrackData() {
+                    if (!window.sessionKey || window.sessionKey === "None" || window.sessionKey === "") {
                         statusDiv.innerText = "● Aguardando sessão ativa na API";
                         return;
-                    }}
-                    try {{
-                        // Pega localizações recentes da sessão para montar o traçado do circuito
-                        const res = await fetch(`https://api.openf1.org/v1/location?session_key=${{window.sessionKey}}`);
+                    }
+                    try {
+                        const res = await fetch(`https://api.openf1.org/v1/location?session_key=${window.sessionKey}`);
                         const data = await res.json();
                         
-                        if (data && data.length > 0) {{
-                            // Agrupa pontos para formar o traçado e pega a última posição de cada carro
+                        if (data && data.length > 0) {
                             let pts = [];
-                            let latestCars = {{}};
+                            let latestCars = {};
                             
-                            data.forEach(item => {{
-                                if (item.x !== undefined && item.y !== undefined) {{
-                                    pts.push({{x: item.x, y: item.y}});
-                                    latestCars[item.driver_number] = {{x: item.x, y: item.y}};
-                                }}
-                            }});
+                            data.forEach(item => {
+                                if (item.x !== undefined && item.y !== undefined) {
+                                    pts.push({x: item.x, y: item.y});
+                                    latestCars[item.driver_number] = {x: item.x, y: item.y};
+                                }
+                            });
                             
-                            if (pts.length > 50) {{
-                                // Amostragem para desenhar o traçado limpo
+                            if (pts.length > 50) {
                                 trackPoints = [];
-                                for(let i=0; i<pts.length; i+=10) {{
+                                for(let i=0; i<pts.length; i+=10) {
                                     trackPoints.push(pts[i]);
-                                }}
-                            }}
+                                }
+                            }
                             carPositions = latestCars;
-                            statusDiv.innerText = "● Circuito Real ({circuit_name}) — Telemetria Ativa";
-                        }}
-                    } catch(e) {{
+                            statusDiv.innerText = "● Circuito Real — Telemetria Ativa";
+                        }
+                    } catch(e) {
                         statusDiv.innerText = "● Modo Simulação / Conectando ao Circuito...";
-                    }}
-                }}
+                    }
+                }
 
-                function draw() {{
+                function draw() {
                     ctx.fillStyle = '#0b0e14';
                     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                    if (trackPoints.length > 10) {{
-                        // Normalizar coordenadas reais X/Y para o tamanho do canvas
+                    if (trackPoints.length > 10) {
                         let minX = Math.min(...trackPoints.map(p => p.x));
                         let maxX = Math.max(...trackPoints.map(p => p.x));
                         let minY = Math.min(...trackPoints.map(p => p.y));
@@ -360,39 +355,35 @@ if menu == "🏎️ Telemetria ao Vivo":
                         let offsetX = 40 + (canvas.width - 80 - (maxX - minX) * scale) / 2;
                         let offsetY = 40 + (canvas.height - 80 - (maxY - minY) * scale) / 2;
 
-                        function transform(x, y) {{
-                            return {{
+                        function transform(x, y) {
+                            return {
                                 px: offsetX + (x - minX) * scale,
-                                py: canvas.height - (offsetY + (y - minY) * scale) // Inverter eixo Y do canvas
-                            }};
-                        }}
+                                py: canvas.height - (offsetY + (y - minY) * scale)
+                            };
+                        }
 
-                        // Desenhar a pista real
                         ctx.strokeStyle = '#1f2a3a';
                         ctx.lineWidth = 26;
                         ctx.lineCap = 'round';
                         ctx.lineJoin = 'round';
                         ctx.beginPath();
-                        trackPoints.forEach((p, idx) => {{
+                        trackPoints.forEach((p, idx) => {
                             let pt = transform(p.x, p.y);
                             if (idx === 0) ctx.moveTo(pt.px, pt.py);
                             else ctx.lineTo(pt.px, pt.py);
-                        }});
+                        });
                         ctx.stroke();
 
-                        // Borda interna da pista
                         ctx.strokeStyle = '#e10600';
                         ctx.lineWidth = 2;
                         ctx.setLineDash([4, 4]);
                         ctx.stroke();
                         ctx.setLineDash([]);
 
-                        // Desenhar os carros na pista em tempo real
-                        for (let dNum in carPositions) {{
+                        for (let dNum in carPositions) {
                             let pos = carPositions[dNum];
                             let pt = transform(pos.x, pos.y);
                             
-                            // Ponto do Carro
                             ctx.fillStyle = '#38bdf8';
                             ctx.beginPath();
                             ctx.arc(pt.px, pt.py, 6, 0, 2 * Math.PI);
@@ -401,29 +392,28 @@ if menu == "🏎️ Telemetria ao Vivo":
                             ctx.lineWidth = 2;
                             ctx.stroke();
 
-                            // Número do Carro
                             ctx.fillStyle = '#ffffff';
                             ctx.font = 'bold 10px sans-serif';
                             ctx.textAlign = 'center';
                             ctx.fillText(dNum, pt.px, pt.py - 10);
-                        }}
-                    }} else {{
-                        // Fallback estético caso os dados demorem a carregar
+                        }
+                    } else {
                         ctx.fillStyle = '#94a3b8';
                         ctx.font = '14px sans-serif';
                         ctx.textAlign = 'center';
-                        ctx.fillText("Mapeando coordenadas da pista de {circuit_name}...", canvas.width/2, canvas.height/2);
-                    }}
+                        ctx.fillText("Mapeando coordenadas da pista...", canvas.width/2, canvas.height/2);
+                    }
                     
                     requestAnimationFrame(draw);
-                }}
+                }
 
                 fetchTrackData();
-                setInterval(fetchTrackData, 5000); // Atualiza dados da pista a cada 5s
+                setInterval(fetchTrackData, 5000);
                 draw();
-            }}
+            }
         </script>
         """
+        track_html = track_html_template.replace("SESSION_KEY_VAL", str(session_key) if session_key else "")
         st.components.v1.html(track_html, height=540)
 
     with col2:
