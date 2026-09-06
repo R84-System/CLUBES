@@ -44,7 +44,7 @@ with col1:
         <canvas id="f1Canvas" style="width:100%; height:100%;"></canvas>
     </div>
     <script>
-        const sessionKey = "{session_key}";
+        window.sessionKey = "{session_key}";
         {js_code}
     </script>
     """
