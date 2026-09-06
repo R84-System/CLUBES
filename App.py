@@ -23,10 +23,10 @@ def get_latest_session():
 session = get_latest_session()
 
 if session:
-    st.sidebar.success(f"Sessão Conectada!")
-    st.sidebar.write(**Nome:** {session.get('session_name')})
-    st.sidebar.write(**Circuito:** {session.get('circuit_short_name')})
-    st.sidebar.write(**Ano:** {session.get('year')})
+    st.sidebar.success("Sessão Conectada!")
+    st.sidebar.write(f"**Nome:** {session.get('session_name')}")
+    st.sidebar.write(f"**Circuito:** {session.get('circuit_short_name')}")
+    st.sidebar.write(f"**Ano:** {session.get('year')}")
     
     session_key = session.get('session_key')
     
