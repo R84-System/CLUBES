@@ -167,7 +167,6 @@ menu = st.sidebar.radio(
 )
 
 if menu == "🏎️ Telemetria ao Vivo":
-    # Título solicitado menor e sem emoji de carro
     st.markdown("<h4 style='color: #f1f5f9; margin-bottom: 15px; font-weight: 700;'>F1 Telemetria</h4>", unsafe_allow_html=True)
 
     @st.cache_data(ttl=15)
@@ -190,78 +189,26 @@ if menu == "🏎️ Telemetria ao Vivo":
         session_key = None
         st.sidebar.warning("Nenhuma sessão ao vivo encontrada.")
 
-    col1, col2 = st.columns([1.5, 1.5])
+    col1, col2 = st.columns([1.4, 1.6])
 
     with col1:
-        st.subheader("Circuito (Setores & Posição)")
-        
-        track_html = r"""
-        <div style="position:relative; width:100%; height:340px; background:#0b0e14; border-radius:12px; border:1px solid #1f2a3a; box-shadow: 0 4px 15px rgba(0,0,0,0.4); overflow:hidden;">
-            <canvas id="f1Canvas" width="700" height="340" style="width:100%; height:100%;"></canvas>
+        st.subheader("Circuito em Tempo Real")
+        try:
+            with open("static/tracker.js", "r", encoding="utf-8") as f:
+                js_code = f.read()
+        except FileNotFoundError:
+            js_code = "// tracker.js não encontrado"
+
+        track_html = f"""
+        <div class="track-container" style="position:relative; width:100%; height:520px; background:#0b0e14; border-radius:12px; border:1px solid #1f2a3a; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
+            <canvas id="f1Canvas" style="width:100%; height:100%;"></canvas>
         </div>
         <script>
-            const canvas = document.getElementById('f1Canvas');
-            const ctx = canvas.getContext('2d');
-            
-            function drawTrack() {
-                ctx.fillStyle = '#0b0e14';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                // Desenho da pista (estilo F1TV escuro)
-                ctx.beginPath();
-                ctx.strokeStyle = '#1e293b';
-                ctx.lineWidth = 36;
-                ctx.lineCap = 'round';
-                ctx.lineJoin = 'round';
-                ctx.moveTo(120, 170);
-                ctx.bezierCurveTo(120, 50, 320, 50, 420, 170);
-                ctx.bezierCurveTo(520, 290, 580, 80, 580, 170);
-                ctx.bezierCurveTo(580, 260, 320, 290, 120, 170);
-                ctx.stroke();
-
-                // Linha central tracejada da pista
-                ctx.beginPath();
-                ctx.strokeStyle = '#334155';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([6, 6]);
-                ctx.moveTo(120, 170);
-                ctx.bezierCurveTo(120, 50, 320, 50, 420, 170);
-                ctx.bezierCurveTo(520, 290, 580, 80, 580, 170);
-                ctx.bezierCurveTo(580, 260, 320, 290, 120, 170);
-                ctx.stroke();
-                ctx.setLineDash([]);
-
-                // Linha de Largada / Chegada
-                ctx.fillStyle = '#e10600';
-                ctx.fillRect(110, 150, 6, 40);
-
-                // Marcações de Linhas de Setores na Pista
-                ctx.strokeStyle = '#38bdf8';
-                ctx.lineWidth = 3;
-                
-                // Linha Setor 1
-                ctx.beginPath();
-                ctx.moveTo(270, 42);
-                ctx.lineTo(270, 78);
-                ctx.stroke();
-
-                // Linha Setor 2
-                ctx.beginPath();
-                ctx.moveTo(510, 110);
-                ctx.lineTo(540, 130);
-                ctx.stroke();
-
-                // Rótulos dos Setores
-                ctx.fillStyle = '#94a3b8';
-                ctx.font = 'bold 10px sans-serif';
-                ctx.fillText("SETOR 1", 245, 32);
-                ctx.fillText("SETOR 2", 520, 95);
-                ctx.fillText("SETOR 3", 310, 305);
-            }
-            drawTrack();
+            window.sessionKey = "{session_key}";
+            {js_code}
         </script>
         """
-        st.components.v1.html(track_html, height=360)
+        st.components.v1.html(track_html, height=540)
 
     with col2:
         st.subheader("Torre de Tempos")
@@ -283,13 +230,12 @@ if menu == "🏎️ Telemetria ao Vivo":
                 laps_res = requests.get(f"https://api.openf1.org/v1/laps?session_key={session_key}").json()
                 
                 current_lap = 1
-                total_laps = 57 # Total estimado padrão de GP caso não retorne da API
+                total_laps = 57
                 if laps_res and isinstance(laps_res, list):
                     df_laps = pd.DataFrame(laps_res)
                     if not df_laps.empty and "lap_number" in df_laps.columns:
                         current_lap = int(df_laps["lap_number"].max())
                 
-                # Sinalização de Largada / Andamento / Bandeira Quadriculada
                 if current_lap == 1:
                     st.markdown("""
                     <div style="background: linear-gradient(90deg, #b91c1c, #ef4444); color: white; padding: 6px 12px; border-radius: 6px; font-weight: 800; text-align: center; margin-bottom: 8px; font-size: 0.8rem;">
@@ -400,10 +346,8 @@ if menu == "🏎️ Telemetria ao Vivo":
                         if pos == 1:
                             time_display = "LEADER"
 
-                        # Mini setores ilustrativos
                         ms_html = '<span class="mini-sector ms-green"></span><span class="mini-sector ms-purple"></span><span class="mini-sector ms-green"></span>'
 
-                        # Gap/Intervalo abaixo da posição (fonte menor) e Pneu ao lado do nome do piloto
                         row_html = f'''<div class="timing-row {pos_class}">
                             <div class="timing-left">
                                 <div style="display: flex; flex-direction: column; align-items: center;">
