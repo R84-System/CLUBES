@@ -2,30 +2,22 @@ import streamlit as st
 import requests
 import pandas as pd
 
-# 1. Configuração da Página para Largura Total e Ocultação da Sidebar Nativa
-st.set_page_config(
-    page_title="F1 Pro Dashboard - EA & F1TV Style",
-    page_icon="🏎️",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
 
-# 2. Estilos CSS Avançados para Layout Profissional (F1 TV Style & Cards) sem Margens Laterais
+# Estilos CSS Avançados para Ocultar Barra Lateral, Topo e Criar Layout Limpo
 st.markdown(r"""
 <style>
-    .block-container {
-        padding-top: 0.4rem !important;
-        padding-bottom: 0rem !important;
-        padding-left: 0.8rem !important;
-        padding-right: 0.8rem !important;
-    }
-    header {visibility: hidden;}
-    footer {visibility: hidden;}
+    /* Força a remoção completa da barra lateral, cabeçalho e barra de carregamento do Streamlit */
+    [data-testid="stSidebar"] { display: none !important; }
+    div[data-testid="stDecoration"] { visibility: hidden; height: 0px; display: none !important; }
+    header { visibility: hidden; height: 0px; display: none !important; }
     
     .stApp {
         background-color: #0b0e14;
         color: #ffffff;
+        padding-top: 0rem;
     }
+    
     .f1-card {
         background: linear-gradient(135deg, #121824 0%, #1a2332 100%);
         border: 1px solid #1f2a3a;
@@ -207,34 +199,18 @@ def get_driver_flag(nationality):
     }
     return flags.get(nationality, "🏁")
 
-# Mapeamento de Escudos/Ícones por Equipe
-def get_team_badge(team_name):
-    badges = {
-        "Ferrari": "🔴 🐎", "Red Bull": "🔵 🐂", "Mercedes": "⬛ ⭐️", "McLaren": "🟠 🏎️",
-        "Aston Martin": "💚 🏎️", "Alpine": "💙 🇫🇷", "Williams": "🔷 🇬🇧", "RB": "⚪ 🏎️",
-        "Kick Sauber": "🟢 🇨🇭", "Haas F1 Team": "⬜ 🇺🇸", "Audi": "🩶 🇩🇪"
-    }
-    for key, badge in badges.items():
-        if key.lower() in team_name.lower():
-            return badge
-    return "🏎️ F1"
+# Cabeçalho Principal e Menu de Navegação Horizontal no Topo
+st.markdown("<h2 style='margin: 0 0 10px 0; color: #ffffff;'>🏁 F1 Hub Pro</h2>", unsafe_allow_html=True)
 
-# 3. Cabeçalho Principal e Barra de Navegação Horizontal (Substituindo a Sidebar)
-col_logo, col_nav = st.columns([1.4, 3.6])
-with col_logo:
-    st.markdown('<div style="font-size: 1.25rem; font-weight: 900; font-style: italic; letter-spacing: 1px; color: #ffffff; padding-top: 6px;">FORMULA 1 <span style="color: #e10600; background: #ffffff; padding: 1px 5px; border-radius: 4px;">HUB PRO</span></div>', unsafe_allow_html=True)
+menu = st.radio(
+    "Navegação",
+    ["🏎️ Telemetria ao Vivo", "🏆 Classificação do Campeonato", "📅 Próximos GPs (Calendário)"],
+    horizontal=True,
+    label_visibility="collapsed"
+)
 
-with col_nav:
-    menu = st.radio(
-        "Navegação",
-        ["🏎️ Telemetria ao Vivo", "🏆 Classificação do Campeonato", "📅 Próximos GPs (Calendário)"],
-        horizontal=True,
-        label_visibility="collapsed"
-    )
+st.markdown("<hr style='border: 1px solid #1f2a3a; margin-top: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
-st.markdown("<hr style='margin: 4px 0 15px 0; border-color: #1f2a3a;'>", unsafe_allow_html=True)
-
-# Lógica das Telas
 if menu == "🏎️ Telemetria ao Vivo":
     @st.cache_data(ttl=15)
     def get_latest_session():
@@ -444,8 +420,28 @@ if menu == "🏎️ Telemetria ao Vivo":
                         ms_html = '<span class="mini-sector ms-green"></span><span class="mini-sector ms-purple"></span><span class="mini-sector ms-green"></span>'
                         pit_html = '<div class="pit-badge">PIT</div>' if in_pit else ''
 
-                        row_html = f'<div class="timing-row {pos_class}"><div class="timing-left">{pit_html}<div style="display: flex; flex-direction: column; align-items: center;"><div class="timing-pos">{pos}</div><div style="font-size: 0.6rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div></div><div><div style="display: flex; align-items: center;"><span class="timing-driver">{pilot}</span></div><div class="timing-team">{team}</div></div></div><div style="display:flex; align-items:center; gap:6px;">{ms_html}</div><div class="timing-right"><div style="text-align: right;"><div class="timing-time" style="{time_style}">{time_prefix}{lap_time}</div></div><span class="tyre-badge {t_class}">{tyre}</span></div></div>'
-                        
+                        row_html = f'''
+                        <div class="timing-row {pos_class}">
+                            <div class="timing-left">
+                                {pit_html}
+                                <div style="display: flex; flex-direction: column; align-items: center;">
+                                    <div class="timing-pos">{pos}</div>
+                                    <div style="font-size: 0.6rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div>
+                                </div>
+                                <div>
+                                    <div style="display: flex; align-items: center;"><span class="timing-driver">{pilot}</span></div>
+                                    <div class="timing-team">{team}</div>
+                                </div>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">{ms_html}</div>
+                            <div class="timing-right">
+                                <div style="text-align: right;">
+                                    <div class="timing-time" style="{time_style}">{time_prefix}{lap_time}</div>
+                                </div>
+                                <span class="tyre-badge {t_class}">{tyre}</span>
+                            </div>
+                        </div>
+                        '''
                         st.markdown(row_html, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
                 else:
@@ -474,11 +470,29 @@ elif menu == "🏆 Classificação do Campeonato":
                 nationality = item['Driver'].get('nationality', '')
                 flag = get_driver_flag(nationality)
                 team_name = item["Constructors"][0]["name"]
-                badge = get_team_badge(team_name)
                 points = item["points"]
                 wins = item["wins"]
                 
-                card_html = f'<div class="f1-card {card_class}"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="display: flex; align-items: center; gap: 15px;"><span style="font-size: 1.5rem; font-weight: 900; color: {"#ffd700" if pos==1 else "#c0c0c0" if pos==2 else "#cd7f32" if pos==3 else "#ffffff"};">#{pos}</span><div><h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{flag} {driver_name}</h3><p style="margin: 2px 0 0 0; font-size: 0.85rem; color: #94a3b8;">{badge} {team_name}</p></div></div><div style="text-align: right; display: flex; gap: 15px; align-items: center;"><div><div class="metric-label">Vitórias</div><div style="font-weight: 700; color: #e2e8f0;">{wins}</div></div><div style="background: #1f2a3a; padding: 8px 16px; border-radius: 8px; text-align: center;"><div class="metric-label">Pontos</div><div class="metric-value" style="color: #e10600;">{points}</div></div></div></div></div>'
+                card_html = f'''
+                <div class="f1-card {card_class}">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <span style="font-size: 1.5rem; font-weight: 900; color: {"#ffd700" if pos==1 else "#c0c0c0" if pos==2 else "#cd7f32" if pos==3 else "#ffffff"};">#{pos}</span>
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{flag} {driver_name}</h3>
+                                <p style="margin: 2px 0 0 0; font-size: 0.85rem; color: #94a3b8;">{team_name}</p>
+                            </div>
+                        </div>
+                        <div style="text-align: right; display: flex; gap: 15px; align-items: center;">
+                            <div><div class="metric-label">Vitórias</div><div style="font-weight: 700; color: #e2e8f0;">{wins}</div></div>
+                            <div style="background: #1f2a3a; padding: 8px 16px; border-radius: 8px; text-align: center;">
+                                <div class="metric-label">Pontos</div>
+                                <div class="metric-value" style="color: #e10600;">{points}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                '''
                 st.markdown(card_html, unsafe_allow_html=True)
         except Exception:
             st.info("Carregando classificação de pilotos...")
@@ -494,11 +508,28 @@ elif menu == "🏆 Classificação do Campeonato":
                 pos = int(item["position"])
                 card_class = f"podium-{pos}" if pos <= 3 else "standard-card"
                 team_name = item["Constructor"]["name"]
-                badge = get_team_badge(team_name)
                 points = item["points"]
                 wins = item["wins"]
                 
-                card_html = f'<div class="f1-card {card_class}"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="display: flex; align-items: center; gap: 15px;"><span style="font-size: 1.5rem; font-weight: 900; color: {"#ffd700" if pos==1 else "#c0c0c0" if pos==2 else "#cd7f32" if pos==3 else "#ffffff"};">#{pos}</span><div><h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{badge} {team_name}</h3></div></div><div style="text-align: right; display: flex; gap: 15px; align-items: center;"><div><div class="metric-label">Vitórias</div><div style="font-weight: 700; color: #e2e8f0;">{wins}</div></div><div style="background: #1f2a3a; padding: 8px 16px; border-radius: 8px; text-align: center;"><div class="metric-label">Pontos</div><div class="metric-value" style="color: #e10600;">{points}</div></div></div></div></div>'
+                card_html = f'''
+                <div class="f1-card {card_class}">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <span style="font-size: 1.5rem; font-weight: 900; color: {"#ffd700" if pos==1 else "#c0c0c0" if pos==2 else "#cd7f32" if pos==3 else "#ffffff"};">#{pos}</span>
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{team_name}</h3>
+                            </div>
+                        </div>
+                        <div style="text-align: right; display: flex; gap: 15px; align-items: center;">
+                            <div><div class="metric-label">Vitórias</div><div style="font-weight: 700; color: #e2e8f0;">{wins}</div></div>
+                            <div style="background: #1f2a3a; padding: 8px 16px; border-radius: 8px; text-align: center;">
+                                <div class="metric-label">Pontos</div>
+                                <div class="metric-value" style="color: #e10600;">{points}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                '''
                 st.markdown(card_html, unsafe_allow_html=True)
         except Exception:
             st.info("Carregando classificação de construtores...")
