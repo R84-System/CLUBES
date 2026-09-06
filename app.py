@@ -294,11 +294,15 @@ if menu == "🏎️ Telemetria ao Vivo":
                                     gap_map[d_num] = f"+{gap}s" if gap is not None else "-"
                     
                     best_lap_map = {}
+                    overall_fastest_driver = None
                     if laps_res and isinstance(laps_res, list):
                         df_laps = pd.DataFrame(laps_res)
                         if not df_laps.empty and "lap_duration" in df_laps.columns and "driver_number" in df_laps.columns:
                             df_valid = df_laps.dropna(subset=["lap_duration"])
                             if not df_valid.empty:
+                                min_row = df_valid.loc[df_valid["lap_duration"].idxmin()]
+                                overall_fastest_driver = min_row["driver_number"]
+                                
                                 for d_num, group in df_valid.groupby("driver_number"):
                                     min_duration = group["lap_duration"].min()
                                     mins = int(min_duration // 60)
@@ -343,6 +347,7 @@ if menu == "🏎️ Telemetria ao Vivo":
                     st.markdown('<div class="timing-container">', unsafe_allow_html=True)
                     for _, row in df_display.iterrows():
                         pos = row["Pos"]
+                        d_num = row["Nº"]
                         pos_class = "timing-pos-1" if pos == 1 else ("timing-pos-2" if pos == 2 or pos == 3 else "")
                         pilot = row["Piloto"]
                         team = row["Equipe"]
@@ -355,11 +360,15 @@ if menu == "🏎️ Telemetria ao Vivo":
                         if pos == 1:
                             time_display = "LEADER"
 
+                        # Apenas o piloto com a volta mais rápida geral recebe o reloginho e destaque em roxo
+                        is_fastest_overall = (d_num == overall_fastest_driver)
+                        time_prefix = "⏱️ " if is_fastest_overall else ""
+                        time_style = "color: #a855f7; font-weight: 800;" if is_fastest_overall else "color: #f1f5f9;"
+
                         ms_html = '<span class="mini-sector ms-green"></span><span class="mini-sector ms-purple"></span><span class="mini-sector ms-green"></span>'
                         pit_html = '<div class="pit-badge">PIT</div>' if in_pit else ''
 
-                        # Montado em linha única para evitar que o Streamlit interprete como bloco de código
-                        row_html = f'<div class="timing-row {pos_class}"><div class="timing-left">{pit_html}<div style="display: flex; flex-direction: column; align-items: center;"><div class="timing-pos">{pos}</div><div style="font-size: 0.6rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div></div><div><div style="display: flex; align-items: center;"><span class="timing-driver">{pilot}</span></div><div class="timing-team">{team}</div></div></div><div style="display:flex; align-items:center; gap:6px;">{ms_html}</div><div class="timing-right"><div style="text-align: right;"><div class="timing-time">⏱️ {lap_time}</div></div><span class="tyre-badge {t_class}">{tyre}</span></div></div>'
+                        row_html = f'<div class="timing-row {pos_class}"><div class="timing-left">{pit_html}<div style="display: flex; flex-direction: column; align-items: center;"><div class="timing-pos">{pos}</div><div style="font-size: 0.6rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div></div><div><div style="display: flex; align-items: center;"><span class="timing-driver">{pilot}</span></div><div class="timing-team">{team}</div></div></div><div style="display:flex; align-items:center; gap:6px;">{ms_html}</div><div class="timing-right"><div style="text-align: right;"><div class="timing-time" style="{time_style}">{time_prefix}{lap_time}</div></div><span class="tyre-badge {t_class}">{tyre}</span></div></div>'
                         
                         st.markdown(row_html, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
