@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
 import pandas as pd
-import textwrap
 
 st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
 
@@ -258,24 +257,11 @@ if menu == "🏎️ Telemetria ao Vivo":
                         current_lap = int(df_laps["lap_number"].max())
                 
                 if current_lap == 1:
-                    st.markdown("""
-                    <div style="background: linear-gradient(90deg, #b91c1c, #ef4444); color: white; padding: 6px 12px; border-radius: 6px; font-weight: 800; text-align: center; margin-bottom: 8px; font-size: 0.8rem;">
-                        🔴🔴🔴🔴🔴 LARGADA AUTORIZADA — VOLTA 1
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown("""<div style="background: linear-gradient(90deg, #b91c1c, #ef4444); color: white; padding: 6px 12px; border-radius: 6px; font-weight: 800; text-align: center; margin-bottom: 8px; font-size: 0.8rem;">🔴🔴🔴🔴🔴 LARGADA AUTORIZADA — VOLTA 1</div>""", unsafe_allow_html=True)
                 elif current_lap >= total_laps:
-                    st.markdown("""
-                    <div style="background: linear-gradient(90deg, #1e293b, #334155); color: white; padding: 6px 12px; border-radius: 6px; font-weight: 800; text-align: center; margin-bottom: 8px; font-size: 0.8rem; border: 1px dashed #ffffff;">
-                        🏁 BANDEIRA QUADRICULADA — FIM DE CORRIDA! 🏁
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown("""<div style="background: linear-gradient(90deg, #1e293b, #334155); color: white; padding: 6px 12px; border-radius: 6px; font-weight: 800; text-align: center; margin-bottom: 8px; font-size: 0.8rem; border: 1px dashed #ffffff;">🏁 BANDEIRA QUADRICULADA — FIM DE CORRIDA! 🏁</div>""", unsafe_allow_html=True)
                 else:
-                    st.markdown(f"""
-                    <div style="display: flex; justify-content: space-between; background: #121824; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #1f2a3a;">
-                        <span style="font-size: 0.8rem; color: #94a3b8;">Total de Voltas do GP: <b>{total_laps}</b></span>
-                        <span style="font-size: 0.85rem; font-weight: 800; color: #38bdf8;">🟢 Volta Atual: {current_lap} / {total_laps}</span>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"""<div style="display: flex; justify-content: space-between; background: #121824; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #1f2a3a;"><span style="font-size: 0.8rem; color: #94a3b8;">Total de Voltas do GP: <b>{total_laps}</b></span><span style="font-size: 0.85rem; font-weight: 800; color: #38bdf8;">🟢 Volta Atual: {current_lap} / {total_laps}</span></div>""", unsafe_allow_html=True)
 
                 if drivers_res and isinstance(drivers_res, list):
                     tires_map = {}
@@ -370,35 +356,10 @@ if menu == "🏎️ Telemetria ao Vivo":
                             time_display = "LEADER"
 
                         ms_html = '<span class="mini-sector ms-green"></span><span class="mini-sector ms-purple"></span><span class="mini-sector ms-green"></span>'
-
                         pit_html = '<div class="pit-badge">PIT</div>' if in_pit else ''
 
-                        row_html = textwrap.dedent(f'''
-                            <div class="timing-row {pos_class}">
-                                <div class="timing-left">
-                                    {pit_html}
-                                    <div style="display: flex; flex-direction: column; align-items: center;">
-                                        <div class="timing-pos">{pos}</div>
-                                        <div style="font-size: 0.6rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div>
-                                    </div>
-                                    <div>
-                                        <div style="display: flex; align-items: center;">
-                                            <span class="timing-driver">{pilot}</span>
-                                        </div>
-                                        <div class="timing-team">{team}</div>
-                                    </div>
-                                </div>
-                                <div style="display:flex; align-items:center; gap:6px;">
-                                    {ms_html}
-                                </div>
-                                <div class="timing-right">
-                                    <div style="text-align: right;">
-                                        <div class="timing-time">⏱️ {lap_time}</div>
-                                    </div>
-                                    <span class="tyre-badge {t_class}">{tyre}</span>
-                                </div>
-                            </div>
-                        ''').strip()
+                        # Montado em linha única para evitar que o Streamlit interprete como bloco de código
+                        row_html = f'<div class="timing-row {pos_class}"><div class="timing-left">{pit_html}<div style="display: flex; flex-direction: column; align-items: center;"><div class="timing-pos">{pos}</div><div style="font-size: 0.6rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div></div><div><div style="display: flex; align-items: center;"><span class="timing-driver">{pilot}</span></div><div class="timing-team">{team}</div></div></div><div style="display:flex; align-items:center; gap:6px;">{ms_html}</div><div class="timing-right"><div style="text-align: right;"><div class="timing-time">⏱️ {lap_time}</div></div><span class="tyre-badge {t_class}">{tyre}</span></div></div>'
                         
                         st.markdown(row_html, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
