@@ -4,15 +4,81 @@ import pandas as pd
 
 st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
 
-# Carrega o CSS externo se existir
-try:
-    with open("static/style.css") as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-except FileNotFoundError:
-    pass
+# Estilos CSS Avançados para Layout Profissional (Dark Mode & Cards)
+st.markdown("""
+<style>
+    .stApp {
+        background-color: #0b0e14;
+        color: #ffffff;
+    }
+    .f1-card {
+        background: linear-gradient(135deg, #121824 0%, #1a2332 100%);
+        border: 1px solid #1f2a3a;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        transition: all 0.3s ease;
+    }
+    .f1-card:hover {
+        border-color: #e10600;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(225,6,0,0.2);
+    }
+    .podium-1 { border-left: 6px solid #ffd700; }
+    .podium-2 { border-left: 6px solid #c0c0c0; }
+    .podium-3 { border-left: 6px solid #cd7f32; }
+    .standard-card { border-left: 6px solid #2563eb; }
+    
+    .badge-pill {
+        background: #1f2a3a;
+        color: #e2e8f0;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .metric-value {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #ffffff;
+    }
+    .metric-label {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Mapeamento de Bandeiras por Nacionalidade
+def get_driver_flag(nationality):
+    flags = {
+        "British": "🇬🇧", "Dutch": "🇳🇱", "Monegasque": "🇲🇨", "Spanish": "🇪🇸",
+        "Mexican": "🇲🇽", "Italian": "🇮🇹", "French": "🇫🇷", "German": "🇩🇪",
+        "Australian": "🇦🇺", "Thai": "🇹🇭", "Japanese": "🇯🇵", "Chinese": "🇨🇳",
+        "Canadian": "🇨🇦", "Danish": "🇩🇰", "Finnish": "🇫🇮", "American": "🇺🇸",
+        "Argentine": "🇦🇷", "Brazilian": "🇧🇷", "Swiss": "🇨🇭", "New Zealander": "🇳🇿",
+        "Austrian": "🇦🇹", "Polish": "🇵🇱"
+    }
+    return flags.get(nationality, "🏁")
+
+# Mapeamento de Escudos/Ícones por Equipe
+def get_team_badge(team_name):
+    badges = {
+        "Ferrari": "🔴 🐎", "Red Bull": "🔵 🐂", "Mercedes": "⬛ ⭐️", "McLaren": "🟠 🏎️",
+        "Aston Martin": "💚 🏎️", "Alpine": "💙 🇫🇷", "Williams": "🔷 🇬🇧", "RB": "⚪ 🏎️",
+        "Kick Sauber": "🟢 🇨🇭", "Haas F1 Team": "⬜ 🇺🇸", "Audi": "🩶 🇩🇪"
+    }
+    for key, badge in badges.items():
+        if key.lower() in team_name.lower():
+            return badge
+    return "🏎️ F1"
 
 # Menu Lateral de Navegação
-st.sidebar.title("🏁 F1 Hub Menu")
+st.sidebar.title("🏁 F1 Hub Pro")
 menu = st.sidebar.radio(
     "Navegação",
     ["🏎️ Telemetria ao Vivo", "🏆 Classificação do Campeonato", "📅 Próximos GPs (Calendário)"]
@@ -41,7 +107,7 @@ if menu == "🏎️ Telemetria ao Vivo":
         session_key = None
         st.sidebar.warning("Nenhuma sessão ao vivo encontrada.")
 
-    col1, col2 = st.columns([1.5, 1.5])
+    col1, col2 = st.columns([1.4, 1.6])
 
     with col1:
         st.subheader("Circuito em Tempo Real")
@@ -52,7 +118,7 @@ if menu == "🏎️ Telemetria ao Vivo":
             js_code = "// tracker.js não encontrado"
 
         track_html = f"""
-        <div class="track-container" style="position:relative; width:100%; height:520px; background:#0b0e14; border-radius:10px; border:1px solid #1f2a3a;">
+        <div class="track-container" style="position:relative; width:100%; height:520px; background:#0b0e14; border-radius:12px; border:1px solid #1f2a3a; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
             <canvas id="f1Canvas" style="width:100%; height:100%;"></canvas>
         </div>
         <script>
@@ -145,7 +211,7 @@ if menu == "🏎️ Telemetria ao Vivo":
             st.info("Conecte a uma sessão válida.")
 
 elif menu == "🏆 Classificação do Campeonato":
-    st.title("🏆 Classificação do Campeonato Mundial de F1")
+    st.title("🏆 Classificação do Campeonato Mundial")
     
     tab1, tab2 = st.tabs(["Pilotos", "Construtores"])
     
@@ -156,18 +222,42 @@ elif menu == "🏆 Classificação do Campeonato":
             data = res.json()
             standings_list = data["MRData"]["StandingsTable"]["StandingsLists"][0]["DriverStandings"]
             
-            drivers_data = []
             for item in standings_list:
-                drivers_data.append({
-                    "Pos": item["position"],
-                    "Piloto": f"{item['Driver']['givenName']} {item['Driver']['familyName']}",
-                    "Equipe": item["Constructors"][0]["name"],
-                    "Pontos": item["points"],
-                    "Vitórias": item["wins"]
-                })
-            st.dataframe(pd.DataFrame(drivers_data), hide_index=True, use_container_width=True)
+                pos = int(item["position"])
+                card_class = f"podium-{pos}" if pos <= 3 else "standard-card"
+                driver_name = f"{item['Driver']['givenName']} {item['Driver']['familyName']}"
+                nationality = item['Driver'].get('nationality', '')
+                flag = get_driver_flag(nationality)
+                team_name = item["Constructors"][0]["name"]
+                badge = get_team_badge(team_name)
+                points = item["points"]
+                wins = item["wins"]
+                
+                st.markdown(f"""
+                <div class="f1-card {card_class}">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <span style="font-size: 1.5rem; font-weight: 900; color: {'#ffd700' if pos==1 else '#c0c0c0' if pos==2 else '#cd7f32' if pos==3 else '#ffffff'};">#{pos}</span>
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{flag} {driver_name}</h3>
+                                <p style="margin: 2px 0 0 0; font-size: 0.85rem; color: #94a3b8;">{badge} {team_name}</p>
+                            </div>
+                        </div>
+                        <div style="text-align: right; display: flex; gap: 15px; align-items: center;">
+                            <div>
+                                <div class="metric-label">Vitórias</div>
+                                <div style="font-weight: 700; color: #e2e8f0;">{wins}</div>
+                            </div>
+                            <div style="background: #1f2a3a; padding: 8px 16px; border-radius: 8px; text-align: center;">
+                                <div class="metric-label">Pontos</div>
+                                <div class="metric-value" style="color: #e10600;">{points}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
         except Exception:
-            st.info("Carregando dados de classificação de pilotos...")
+            st.info("Carregando classificação de pilotos...")
             
     with tab2:
         st.subheader("Mundial de Construtores")
@@ -176,35 +266,70 @@ elif menu == "🏆 Classificação do Campeonato":
             data = res.json()
             standings_list = data["MRData"]["StandingsTable"]["StandingsLists"][0]["ConstructorStandings"]
             
-            constructors_data = []
             for item in standings_list:
-                constructors_data.append({
-                    "Pos": item["position"],
-                    "Equipe": item["Constructor"]["name"],
-                    "Pontos": item["points"],
-                    "Vitórias": item["wins"]
-                })
-            st.dataframe(pd.DataFrame(constructors_data), hide_index=True, use_container_width=True)
+                pos = int(item["position"])
+                card_class = f"podium-{pos}" if pos <= 3 else "standard-card"
+                team_name = item["Constructor"]["name"]
+                badge = get_team_badge(team_name)
+                points = item["points"]
+                wins = item["wins"]
+                
+                st.markdown(f"""
+                <div class="f1-card {card_class}">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <span style="font-size: 1.5rem; font-weight: 900; color: {'#ffd700' if pos==1 else '#c0c0c0' if pos==2 else '#cd7f32' if pos==3 else '#ffffff'};">#{pos}</span>
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{badge} {team_name}</h3>
+                            </div>
+                        </div>
+                        <div style="text-align: right; display: flex; gap: 15px; align-items: center;">
+                            <div>
+                                <div class="metric-label">Vitórias</div>
+                                <div style="font-weight: 700; color: #e2e8f0;">{wins}</div>
+                            </div>
+                            <div style="background: #1f2a3a; padding: 8px 16px; border-radius: 8px; text-align: center;">
+                                <div class="metric-label">Pontos</div>
+                                <div class="metric-value" style="color: #e10600;">{points}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
         except Exception:
-            st.info("Carregando dados de construtores...")
+            st.info("Carregando classificação de construtores...")
 
 elif menu == "📅 Próximos GPs (Calendário)":
-    st.title("📅 Calendário de Grandes Prêmios da Temporada")
+    st.title("📅 Calendário de Grandes Prêmios")
     try:
         res = requests.get("https://api.jolpi.ca/ergast/f1/current.json")
         data = res.json()
         races = data["MRData"]["RaceTable"]["Races"]
         
-        calendar_data = []
-        for race in races:
-            calendar_data.append({
-                "Etapa": race["round"],
-                "Grande Prêmio": race["raceName"],
-                "Circuito": race["Circuit"]["circuitName"],
-                "País": race["Circuit"]["Location"]["country"],
-                "Data": race["date"]
-            })
+        cols = st.columns(2)
+        for idx, race in enumerate(races):
+            round_num = race["round"]
+            race_name = race["raceName"]
+            circuit = race["Circuit"]["circuitName"]
+            country = race["Circuit"]["Location"]["country"]
+            date = race["date"]
             
-        st.dataframe(pd.DataFrame(calendar_data), hide_index=True, use_container_width=True, height=600)
+            card_html = f"""
+            <div class="f1-card standard-card">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <span class="badge-pill">Etapa {round_num}</span>
+                        <h3 style="margin: 8px 0 4px 0; font-size: 1.05rem; color: #ffffff;">🏁 {race_name}</h3>
+                        <p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">📍 {circuit} ({country})</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="metric-label">Data</div>
+                        <div style="font-weight: 700; color: #e2e8f0; font-size: 0.95rem;">📅 {date}</div>
+                    </div>
+                </div>
+            </div>
+            """
+            cols[idx % 2].markdown(card_html, unsafe_allow_html=True)
+            
     except Exception:
         st.info("Carregando calendário de GPs...")
