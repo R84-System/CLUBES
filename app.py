@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import pandas as pd
+import textwrap
 
 st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
 
@@ -372,31 +373,33 @@ if menu == "🏎️ Telemetria ao Vivo":
 
                         pit_html = '<div class="pit-badge">PIT</div>' if in_pit else ''
 
-                        # Pneu posicionado no lado direito fora do bloco do nome, com o relógio ⏱️ e indicador de pit na esquerda
-                        row_html = f'''<div class="timing-row {pos_class}">
-                            <div class="timing-left">
-                                {pit_html}
-                                <div style="display: flex; flex-direction: column; align-items: center;">
-                                    <div class="timing-pos">{pos}</div>
-                                    <div style="font-size: 0.6rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div>
-                                </div>
-                                <div>
-                                    <div style="display: flex; align-items: center;">
-                                        <span class="timing-driver">{pilot}</span>
+                        row_html = textwrap.dedent(f'''
+                            <div class="timing-row {pos_class}">
+                                <div class="timing-left">
+                                    {pit_html}
+                                    <div style="display: flex; flex-direction: column; align-items: center;">
+                                        <div class="timing-pos">{pos}</div>
+                                        <div style="font-size: 0.6rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div>
                                     </div>
-                                    <div class="timing-team">{team}</div>
+                                    <div>
+                                        <div style="display: flex; align-items: center;">
+                                            <span class="timing-driver">{pilot}</span>
+                                        </div>
+                                        <div class="timing-team">{team}</div>
+                                    </div>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    {ms_html}
+                                </div>
+                                <div class="timing-right">
+                                    <div style="text-align: right;">
+                                        <div class="timing-time">⏱️ {lap_time}</div>
+                                    </div>
+                                    <span class="tyre-badge {t_class}">{tyre}</span>
                                 </div>
                             </div>
-                            <div style="display:flex; align-items:center; gap:6px;">
-                                {ms_html}
-                            </div>
-                            <div class="timing-right">
-                                <div style="text-align: right;">
-                                    <div class="timing-time">⏱️ {lap_time}</div>
-                                </div>
-                                <span class="tyre-badge {t_class}">{tyre}</span>
-                            </div>
-                        </div>'''
+                        ''').strip()
+                        
                         st.markdown(row_html, unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
                 else:
