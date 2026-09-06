@@ -2,11 +2,26 @@ import streamlit as st
 import requests
 import pandas as pd
 
-st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
+# 1. Configuração da Página para Largura Total e Ocultação da Sidebar Nativa
+st.set_page_config(
+    page_title="F1 Pro Dashboard - EA & F1TV Style",
+    page_icon="🏎️",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# Estilos CSS Avançados para Layout Profissional (F1 TV Style & Cards)
+# 2. Estilos CSS Avançados para Layout Profissional (F1 TV Style & Cards) sem Margens Laterais
 st.markdown(r"""
 <style>
+    .block-container {
+        padding-top: 0.4rem !important;
+        padding-bottom: 0rem !important;
+        padding-left: 0.8rem !important;
+        padding-right: 0.8rem !important;
+    }
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    
     .stApp {
         background-color: #0b0e14;
         color: #ffffff;
@@ -204,13 +219,22 @@ def get_team_badge(team_name):
             return badge
     return "🏎️ F1"
 
-# Menu Lateral de Navegação
-st.sidebar.title("🏁 F1 Hub Pro")
-menu = st.sidebar.radio(
-    "Navegação",
-    ["🏎️ Telemetria ao Vivo", "🏆 Classificação do Campeonato", "📅 Próximos GPs (Calendário)"]
-)
+# 3. Cabeçalho Principal e Barra de Navegação Horizontal (Substituindo a Sidebar)
+col_logo, col_nav = st.columns([1.4, 3.6])
+with col_logo:
+    st.markdown('<div style="font-size: 1.25rem; font-weight: 900; font-style: italic; letter-spacing: 1px; color: #ffffff; padding-top: 6px;">FORMULA 1 <span style="color: #e10600; background: #ffffff; padding: 1px 5px; border-radius: 4px;">HUB PRO</span></div>', unsafe_allow_html=True)
 
+with col_nav:
+    menu = st.radio(
+        "Navegação",
+        ["🏎️ Telemetria ao Vivo", "🏆 Classificação do Campeonato", "📅 Próximos GPs (Calendário)"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
+st.markdown("<hr style='margin: 4px 0 15px 0; border-color: #1f2a3a;'>", unsafe_allow_html=True)
+
+# Lógica das Telas
 if menu == "🏎️ Telemetria ao Vivo":
     @st.cache_data(ttl=15)
     def get_latest_session():
@@ -229,14 +253,11 @@ if menu == "🏎️ Telemetria ao Vivo":
         year = latest_session.get('year', '')
         raw_session_name = latest_session.get('session_name', '')
         session_title = translate_session_name(raw_session_name)
-        
-        st.sidebar.success(f"Sessão: {session_title}\n\n📍 {circuit_name} ({year})")
     else:
         session_key = None
         session_title = "Aguardando Sessão"
         circuit_name = "Circuito F1"
         year = ""
-        st.sidebar.warning("Nenhuma sessão ao vivo encontrada.")
 
     # Banner Superior Dinâmico indicando o status atual ao vivo
     banner_html = f"""
