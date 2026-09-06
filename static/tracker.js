@@ -48,17 +48,17 @@ function runTracker() {
         }
     }
 
-    async function fetchPositions() {
+    async function fetchLatestPositions() {
         try {
             const res = await fetch(`https://api.openf1.org/v1/location?session_key=${sKey}`);
             const data = await res.json();
             if (data && data.length > 0) {
+                // Ordena cronologicamente para garantir que pegamos o ponto mais recente de cada piloto
+                data.sort((a, b) => new Date(a.date) - new Date(b.date));
                 const latest = {};
                 data.forEach(p => {
                     if (p.x !== 0 && p.y !== 0) {
-                        if (!latest[p.driver_number] || new Date(p.date) > new Date(latest[p.driver_number].date)) {
-                            latest[p.driver_number] = { x: p.x, y: p.y, date: p.date };
-                        }
+                        latest[p.driver_number] = { x: p.x, y: p.y };
                     }
                 });
                 driverPositions = latest;
@@ -140,7 +140,7 @@ function runTracker() {
     }
 
     initTrackerData();
-    fetchPositions();
-    setInterval(fetchPositions, 3000);
+    fetchLatestPositions();
+    setInterval(fetchLatestPositions, 4000);
     render();
 }
