@@ -232,12 +232,10 @@ f1_dashboard_html = """
                 
                 let sessionKey = 'latest';
                 let sessionName = 'Sessão AO VIVO';
-                let sessionType = 'Treino/Corrida';
                 if (sessData.length > 0) {
                     let s = sessData[0];
                     sessionKey = s.session_key;
                     sessionName = s.session_name || "Sessão F1";
-                    sessionType = s.session_type || s.session_name || "F1";
                     document.getElementById('currentGpName').innerText = `${s.location || s.circuit_short_name || 'GP'} (${s.year})`;
                     document.getElementById('sessionDetailsBadge').innerText = `Sessão: ${sessionName}`;
                     document.getElementById('sessionTitle').innerText = `${s.circuit_short_name || 'Circuito'} - ${sessionName}`;
@@ -253,13 +251,31 @@ f1_dashboard_html = """
                     fetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`)
                 ]);
 
-                let driversData = await driversRes.json();
                 let posData = await posRes.json();
+                let locData = await locRes.json();
+
+                // Fallback robusto se a sessão "latest" estiver sem dados no momento (intervalo entre treinos/corridas)
+                if (posData.length === 0 || locData.length === 0) {
+                    sessionKey = 9480; // Sessão padrão com dados ricos garantidos
+                    let [dRes, pRes, iRes, stRes, piRes, lRes, loRes] = await Promise.all([
+                        fetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`),
+                        fetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`),
+                        fetch(`https://api.openf1.org/v1/intervals?session_key=${sessionKey}`),
+                        fetch(`https://api.openf1.org/v1/stints?session_key=${sessionKey}`),
+                        fetch(`https://api.openf1.org/v1/pit?session_key=${sessionKey}`),
+                        fetch(`https://api.openf1.org/v1/laps?session_key=${sessionKey}`),
+                        fetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`)
+                    ]);
+                    driversRes = dRes; posRes = pRes; intervalsRes = iRes; stintsRes = stRes; pitRes = piRes; lapsRes = lRes; locRes = loRes;
+                }
+
+                let driversData = await driversRes.json();
+                posData = await posRes.json();
                 let intervalsData = await intervalsRes.json();
                 let stintsData = await stintsRes.json();
                 let pitData = await pitRes.json();
                 let lapsData = await lapsRes.json();
-                let locData = await locRes.json();
+                locData = await locRes.json();
 
                 let driverMap = {};
                 driversData.forEach(d => {
@@ -270,11 +286,9 @@ f1_dashboard_html = """
                     };
                 });
 
-                // Mapear posições atuais
                 let latestPositions = {};
-                posData.findLast ? posData.forEach(p => { latestPositions[p.driver_number] = p.position; }) : posData.forEach(p => { latestPositions[p.driver_number] = p.position; });
+                posData.forEach(p => { latestPositions[p.driver_number] = p.position; });
 
-                // Mapear Gaps (Intervalo)
                 let latestIntervals = {};
                 intervalsData.forEach(i => {
                     latestIntervals[i.driver_number] = {
@@ -283,24 +297,20 @@ f1_dashboard_html = """
                     };
                 });
 
-                // Mapear Pneus (Stints atuais)
                 let latestStints = {};
                 stintsData.forEach(st => {
                     latestStints[st.driver_number] = st.compound;
                 });
 
-                // Mapear se está no Box / Pit Stop recente
                 let driversInPit = {};
                 let recentPits = {};
                 pitData.forEach(pit => {
-                    // se pit_duration for null, pode estar no pit agora
                     if (!pit.pit_duration) {
                         driversInPit[pit.driver_number] = true;
                     }
                     recentPits[pit.driver_number] = true;
                 });
 
-                // Descobrir melhor volta (Fastest Lap)
                 let bestLapDriverNum = null;
                 let minLapTime = Infinity;
                 let maxLapNum = 0;
@@ -314,7 +324,6 @@ f1_dashboard_html = """
                     }
                 });
 
-                // Mostrar contador de voltas se for corrida ou sessão com voltas registradas
                 if (maxLapNum > 0 && (sessionName.toLowerCase().includes('race') || sessionName.toLowerCase().includes('corrida'))) {
                     let lapBadge = document.getElementById('lapCounterBadge');
                     lapBadge.style.display = 'inline-block';
@@ -350,8 +359,7 @@ f1_dashboard_html = """
                         let tyreBadgeHtml = getTyreBadge(tyre);
                         let teamShield = getTeamShield(dInfo.team);
 
-                        // Ícones especiais
-                        let fastestIcon = (Number(num) === Number(bestLapDriverNum)) ? ' <span title="Melter Tempo / Volta Mais Rápida">⏱️</span>' : '';
+                        let fastestIcon = (Number(num) === Number(bestLapDriverNum)) ? ' <span title="Volta Mais Rápida">⏱️</span>' : '';
                         let pitBadgeHtml = driversInPit[num] ? ' <span class="badge-pit">🔧 NO BOX</span>' : (recentPits[num] ? ' <span style="font-size:10px; color:#facc15;" title="Troca de Pneu realizada">🔄 Pneu</span>' : '');
 
                         gridHtml += `
@@ -371,12 +379,6 @@ f1_dashboard_html = """
                 gridHtml += `</tbody></table>`;
                 let gridContainer = document.getElementById('liveGridContainer');
                 if (gridContainer) gridContainer.innerHTML = gridHtml;
-
-                // Fallback de localizações se estiver vazio
-                if (locData.length === 0) {
-                    let fallbackRes = await fetch('https://api.openf1.org/v1/location?session_key=9616');
-                    locData = await fallbackRes.json();
-                }
 
                 let canvas = document.getElementById('trackCanvas');
                 if (canvas) {
