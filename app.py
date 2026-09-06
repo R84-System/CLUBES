@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
 import pandas as pd
-from datetime import datetime
 
 st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
 
@@ -168,7 +167,7 @@ st.markdown(r"""
 # Tradutor de Nomes de Sessão da API para Português Amigável
 def translate_session_name(session_name):
     if not session_name:
-        return "Sessão Recente"
+        return "Sessão ao Vivo"
     mapping = {
         "Practice 1": "Treino Livre 1 (TL1)",
         "Practice 2": "Treino Livre 2 (TL2)",
@@ -213,40 +212,18 @@ menu = st.sidebar.radio(
 )
 
 if menu == "🏎️ Telemetria ao Vivo":
-    @st.cache_data(ttl=60)
+    @st.cache_data(ttl=15)
     def get_latest_session():
         try:
-            # 1. Tenta buscar a sessão atual/mais recente via 'latest'
-            res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest", timeout=10)
-            if res.status_code == 200:
-                data = res.json()
-                if isinstance(data, list) and len(data) > 0:
-                    return data
-                elif isinstance(data, dict) and data:
-                    return [data]
-            
-            # 2. Fallback: se não houver sessão ao vivo agora, pega a última sessão do ano atual
-            current_year = datetime.now().year
-            res_year = requests.get(f"https://api.openf1.org/v1/sessions?year={current_year}", timeout=10)
-            if res_year.status_code == 200:
-                year_data = res_year.json()
-                if isinstance(year_data, list) and len(year_data) > 0:
-                    return [year_data[-1]] # Retorna a última sessão registrada no ano
-            
-            return []
-        except Exception:
+            res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest")
+            return res.json()
+        except:
             return []
 
     data = get_latest_session()
 
-    # Validação segura e robusta
-    latest_session = None
-    if isinstance(data, list) and len(data) > 0:
+    if data and len(data) > 0:
         latest_session = data[0]
-    elif isinstance(data, dict):
-        latest_session = data
-
-    if latest_session and isinstance(latest_session, dict):
         session_key = latest_session.get("session_key")
         circuit_name = latest_session.get('circuit_short_name', 'F1')
         year = latest_session.get('year', '')
@@ -256,19 +233,18 @@ if menu == "🏎️ Telemetria ao Vivo":
         st.sidebar.success(f"Sessão: {session_title}\n\n📍 {circuit_name} ({year})")
     else:
         session_key = None
-        session_title = "Nenhuma Sessão Disponível"
+        session_title = "Aguardando Sessão"
         circuit_name = "Circuito F1"
         year = ""
-        raw_session_name = ""
-        st.sidebar.warning("Nenhuma sessão encontrada no momento.")
+        st.sidebar.warning("Nenhuma sessão ao vivo encontrada.")
 
-    # Banner Superior Dinâmico
+    # Banner Superior Dinâmico indicando o status atual ao vivo
     banner_html = f"""
     <div style="display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #121824 0%, #1a2332 100%); border: 1px solid #1f2a3a; border-left: 5px solid #e10600; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
         <div style="display: flex; align-items: center; gap: 12px;">
             <span class="live-dot"></span>
             <div>
-                <span style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; display: block;">Status da Sessão</span>
+                <span style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; display: block;">Sessão Ativa na Pista</span>
                 <span style="font-size: 1.1rem; font-weight: 900; color: #ffffff; letter-spacing: 0.5px;">{session_title}</span>
             </div>
         </div>
@@ -313,22 +289,22 @@ if menu == "🏎️ Telemetria ao Vivo":
 
         if session_key:
             try:
-                drivers_res = requests.get(f"https://api.openf1.org/v1/drivers?session_key={session_key}", timeout=10).json()
-                stints_res = requests.get(f"https://api.openf1.org/v1/stints?session_key={session_key}", timeout=10).json()
-                intervals_res = requests.get(f"https://api.openf1.org/v1/intervals?session_key={session_key}", timeout=10).json()
-                positions_res = requests.get(f"https://api.openf1.org/v1/position?session_key={session_key}", timeout=10).json()
-                laps_res = requests.get(f"https://api.openf1.org/v1/laps?session_key={session_key}", timeout=10).json()
-                pits_res = requests.get(f"https://api.openf1.org/v1/pits?session_key={session_key}", timeout=10).json()
+                drivers_res = requests.get(f"https://api.openf1.org/v1/drivers?session_key={session_key}").json()
+                stints_res = requests.get(f"https://api.openf1.org/v1/stints?session_key={session_key}").json()
+                intervals_res = requests.get(f"https://api.openf1.org/v1/intervals?session_key={session_key}").json()
+                positions_res = requests.get(f"https://api.openf1.org/v1/position?session_key={session_key}").json()
+                laps_res = requests.get(f"https://api.openf1.org/v1/laps?session_key={session_key}").json()
+                pits_res = requests.get(f"https://api.openf1.org/v1/pits?session_key={session_key}").json()
                 
                 in_pit_drivers = set()
-                if isinstance(pits_res, list):
+                if pits_res and isinstance(pits_res, list):
                     for p in pits_res:
                         if p.get("pit_duration") is None:
                             in_pit_drivers.add(p.get("driver_number"))
 
                 current_lap = 1
                 total_laps = 57
-                if isinstance(laps_res, list) and len(laps_res) > 0:
+                if laps_res and isinstance(laps_res, list):
                     df_laps = pd.DataFrame(laps_res)
                     if not df_laps.empty and "lap_number" in df_laps.columns:
                         current_lap = int(df_laps["lap_number"].max())
@@ -343,16 +319,16 @@ if menu == "🏎️ Telemetria ao Vivo":
                 else:
                     st.markdown(f"""<div style="display: flex; justify-content: space-between; background: #121824; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #1f2a3a;"><span style="font-size: 0.8rem; color: #94a3b8;">Sessão: <b>{session_title}</b></span><span style="font-size: 0.85rem; font-weight: 800; color: #38bdf8;">⏱️ Voltas Registradas: {current_lap}</span></div>""", unsafe_allow_html=True)
 
-                if isinstance(drivers_res, list) and len(drivers_res) > 0:
+                if drivers_res and isinstance(drivers_res, list):
                     tires_map = {}
-                    if isinstance(stints_res, list):
+                    if stints_res and isinstance(stints_res, list):
                         for s in stints_res:
                             d_num = s.get("driver_number")
                             if d_num:
                                 tires_map[d_num] = s.get("compound", "N/A")
                     
                     pos_map = {}
-                    if isinstance(positions_res, list) and len(positions_res) > 0:
+                    if positions_res and isinstance(positions_res, list):
                         df_pos = pd.DataFrame(positions_res)
                         if not df_pos.empty and "driver_number" in df_pos.columns and "position" in df_pos.columns:
                             df_pos = df_pos.sort_values("date")
@@ -361,7 +337,7 @@ if menu == "🏎️ Telemetria ao Vivo":
 
                     interval_map = {}
                     gap_map = {}
-                    if isinstance(intervals_res, list) and len(intervals_res) > 0:
+                    if intervals_res and isinstance(intervals_res, list):
                         df_int = pd.DataFrame(intervals_res)
                         if not df_int.empty:
                             df_int = df_int.sort_values("date")
@@ -375,7 +351,7 @@ if menu == "🏎️ Telemetria ao Vivo":
                     
                     best_lap_map = {}
                     overall_fastest_driver = None
-                    if isinstance(laps_res, list) and len(laps_res) > 0:
+                    if laps_res and isinstance(laps_res, list):
                         df_laps = pd.DataFrame(laps_res)
                         if not df_laps.empty and "lap_duration" in df_laps.columns and "driver_number" in df_laps.columns:
                             df_valid = df_laps.dropna(subset=["lap_duration"])
@@ -466,7 +442,7 @@ elif menu == "🏆 Classificação do Campeonato":
     with tab1:
         st.subheader("Mundial de Pilotos")
         try:
-            res = requests.get("https://api.jolpi.ca/ergast/f1/current/driverStandings.json", timeout=10)
+            res = requests.get("https://api.jolpi.ca/ergast/f1/current/driverStandings.json")
             data = res.json()
             standings_list = data["MRData"]["StandingsTable"]["StandingsLists"][0]["DriverStandings"]
             
@@ -489,7 +465,7 @@ elif menu == "🏆 Classificação do Campeonato":
     with tab2:
         st.subheader("Mundial de Construtores")
         try:
-            res = requests.get("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json", timeout=10)
+            res = requests.get("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json")
             data = res.json()
             standings_list = data["MRData"]["StandingsTable"]["StandingsLists"][0]["ConstructorStandings"]
             
@@ -509,7 +485,7 @@ elif menu == "🏆 Classificação do Campeonato":
 elif menu == "📅 Próximos GPs (Calendário)":
     st.title("📅 Calendário de Grandes Prêmios")
     try:
-        res = requests.get("https://api.jolpi.ca/ergast/f1/current.json", timeout=10)
+        res = requests.get("https://api.jolpi.ca/ergast/f1/current.json")
         data = res.json()
         races = data["MRData"]["RaceTable"]["Races"]
         
