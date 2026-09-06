@@ -215,14 +215,23 @@ if menu == "🏎️ Telemetria ao Vivo":
     @st.cache_data(ttl=15)
     def get_latest_session():
         try:
-            res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest")
-            return res.json()
-        except:
+            res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest", timeout=5)
+            data = res.json()
+            if isinstance(data, list) and len(data) > 0:
+                return data
+            
+            # Fallback buscando pela temporada atual caso o parâmetro "latest" retorne vazio/dicionário
+            res2 = requests.get("https://api.openf1.org/v1/sessions?year=2026", timeout=5)
+            data2 = res2.json()
+            if isinstance(data2, list) and len(data2) > 0:
+                return [data2[-1]]
+            return []
+        except Exception:
             return []
 
     data = get_latest_session()
 
-    if data and len(data) > 0:
+    if data and isinstance(data, list) and len(data) > 0:
         latest_session = data[0]
         session_key = latest_session.get("session_key")
         circuit_name = latest_session.get('circuit_short_name', 'F1')
@@ -296,15 +305,22 @@ if menu == "🏎️ Telemetria ao Vivo":
                 laps_res = requests.get(f"https://api.openf1.org/v1/laps?session_key={session_key}").json()
                 pits_res = requests.get(f"https://api.openf1.org/v1/pits?session_key={session_key}").json()
                 
+                # Assegura que todas as respostas sejam listas válidas para evitar falhas em cascata
+                drivers_res = drivers_res if isinstance(drivers_res, list) else []
+                stints_res = stints_res if isinstance(stints_res, list) else []
+                intervals_res = intervals_res if isinstance(intervals_res, list) else []
+                positions_res = positions_res if isinstance(positions_res, list) else []
+                laps_res = laps_res if isinstance(laps_res, list) else []
+                pits_res = pits_res if isinstance(pits_res, list) else []
+
                 in_pit_drivers = set()
-                if pits_res and isinstance(pits_res, list):
-                    for p in pits_res:
-                        if p.get("pit_duration") is None:
-                            in_pit_drivers.add(p.get("driver_number"))
+                for p in pits_res:
+                    if p.get("pit_duration") is None:
+                        in_pit_drivers.add(p.get("driver_number"))
 
                 current_lap = 1
                 total_laps = 57
-                if laps_res and isinstance(laps_res, list):
+                if laps_res:
                     df_laps = pd.DataFrame(laps_res)
                     if not df_laps.empty and "lap_number" in df_laps.columns:
                         current_lap = int(df_laps["lap_number"].max())
@@ -319,16 +335,15 @@ if menu == "🏎️ Telemetria ao Vivo":
                 else:
                     st.markdown(f"""<div style="display: flex; justify-content: space-between; background: #121824; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #1f2a3a;"><span style="font-size: 0.8rem; color: #94a3b8;">Sessão: <b>{session_title}</b></span><span style="font-size: 0.85rem; font-weight: 800; color: #38bdf8;">⏱️ Voltas Registradas: {current_lap}</span></div>""", unsafe_allow_html=True)
 
-                if drivers_res and isinstance(drivers_res, list):
+                if drivers_res:
                     tires_map = {}
-                    if stints_res and isinstance(stints_res, list):
-                        for s in stints_res:
-                            d_num = s.get("driver_number")
-                            if d_num:
-                                tires_map[d_num] = s.get("compound", "N/A")
+                    for s in stints_res:
+                        d_num = s.get("driver_number")
+                        if d_num:
+                            tires_map[d_num] = s.get("compound", "N/A")
                     
                     pos_map = {}
-                    if positions_res and isinstance(positions_res, list):
+                    if positions_res:
                         df_pos = pd.DataFrame(positions_res)
                         if not df_pos.empty and "driver_number" in df_pos.columns and "position" in df_pos.columns:
                             df_pos = df_pos.sort_values("date")
@@ -337,7 +352,7 @@ if menu == "🏎️ Telemetria ao Vivo":
 
                     interval_map = {}
                     gap_map = {}
-                    if intervals_res and isinstance(intervals_res, list):
+                    if intervals_res:
                         df_int = pd.DataFrame(intervals_res)
                         if not df_int.empty:
                             df_int = df_int.sort_values("date")
@@ -351,7 +366,7 @@ if menu == "🏎️ Telemetria ao Vivo":
                     
                     best_lap_map = {}
                     overall_fastest_driver = None
-                    if laps_res and isinstance(laps_res, list):
+                    if laps_res:
                         df_laps = pd.DataFrame(laps_res)
                         if not df_laps.empty and "lap_duration" in df_laps.columns and "driver_number" in df_laps.columns:
                             df_valid = df_laps.dropna(subset=["lap_duration"])
@@ -442,7 +457,7 @@ elif menu == "🏆 Classificação do Campeonato":
     with tab1:
         st.subheader("Mundial de Pilotos")
         try:
-            res = requests.get("https://api.jolpi.ca/ergast/f1/current/driverStandings.json")
+            res = requests.get("https://api.jolpi.ca/ergast/f1/current/driverStandings.json", timeout=5)
             data = res.json()
             standings_list = data["MRData"]["StandingsTable"]["StandingsLists"][0]["DriverStandings"]
             
@@ -465,7 +480,7 @@ elif menu == "🏆 Classificação do Campeonato":
     with tab2:
         st.subheader("Mundial de Construtores")
         try:
-            res = requests.get("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json")
+            res = requests.get("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json", timeout=5)
             data = res.json()
             standings_list = data["MRData"]["StandingsTable"]["StandingsLists"][0]["ConstructorStandings"]
             
@@ -485,7 +500,7 @@ elif menu == "🏆 Classificação do Campeonato":
 elif menu == "📅 Próximos GPs (Calendário)":
     st.title("📅 Calendário de Grandes Prêmios")
     try:
-        res = requests.get("https://api.jolpi.ca/ergast/f1/current.json")
+        res = requests.get("https://api.jolpi.ca/ergast/f1/current.json", timeout=5)
         data = res.json()
         races = data["MRData"]["RaceTable"]["Races"]
         
