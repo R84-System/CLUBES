@@ -261,7 +261,6 @@ if menu == "🏎️ Telemetria ao Vivo":
                         position = pos_map.get(d_num, 99)
                         compound = tires_map.get(d_num, "N/A")
                         
-                        # Identifica letra do pneu estilo TV (S, M, H)
                         comp_upper = compound.upper()
                         if "SOFT" in comp_upper:
                             tyre_letter, tyre_class = "S", "tyre-soft"
@@ -287,8 +286,8 @@ if menu == "🏎️ Telemetria ao Vivo":
                     df_display = pd.DataFrame(table_data)
                     df_display = df_display.sort_values(by="Pos").reset_index(drop=True)
                     
-                    # Renderização em blocos estilo F1 TV (Timing Tower)
-                    timing_html = '<div class="timing-container">'
+                    # Renderização correta em blocos (Evitando quebra de markdown)
+                    st.markdown('<div class="timing-container">', unsafe_allow_html=True)
                     for _, row in df_display.iterrows():
                         pos = row["Pos"]
                         pos_class = "timing-pos-1" if pos == 1 else ("timing-pos-2" if pos == 2 or pos == 3 else "")
@@ -299,25 +298,9 @@ if menu == "🏎️ Telemetria ao Vivo":
                         lap_time = row["Melhor Volta"]
                         gap = row["Gap"]
                         
-                        timing_html += f"""
-                        <div class="timing-row {pos_class}">
-                            <div class="timing-left">
-                                <div class="timing-pos">{pos}</div>
-                                <div class="tyre-badge {t_class}">{tyre}</div>
-                                <div>
-                                    <div class="timing-driver">{pilot}</div>
-                                    <div class="timing-team">{team}</div>
-                                </div>
-                            </div>
-                            <div class="timing-right">
-                                <div class="timing-time">{lap_time}</div>
-                                <div class="timing-gap">{gap}</div>
-                            </div>
-                        </div>
-                        """
-                    timing_html += '</div>'
-                    
-                    st.markdown(timing_html, unsafe_allow_html=True)
+                        row_html = f'<div class="timing-row {pos_class}"><div class="timing-left"><div class="timing-pos">{pos}</div><div class="tyre-badge {t_class}">{tyre}</div><div><div class="timing-driver">{pilot}</div><div class="timing-team">{team}</div></div></div><div class="timing-right"><div class="timing-time">{lap_time}</div><div class="timing-gap">{gap}</div></div></div>'
+                        st.markdown(row_html, unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
                 else:
                     st.info("Aguardando dados dos pilotos...")
             except Exception as e:
@@ -348,29 +331,8 @@ elif menu == "🏆 Classificação do Campeonato":
                 points = item["points"]
                 wins = item["wins"]
                 
-                st.markdown(f"""
-                <div class="f1-card {card_class}">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            <span style="font-size: 1.5rem; font-weight: 900; color: {'#ffd700' if pos==1 else '#c0c0c0' if pos==2 else '#cd7f32' if pos==3 else '#ffffff'};">#{pos}</span>
-                            <div>
-                                <h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{flag} {driver_name}</h3>
-                                <p style="margin: 2px 0 0 0; font-size: 0.85rem; color: #94a3b8;">{badge} {team_name}</p>
-                            </div>
-                        </div>
-                        <div style="text-align: right; display: flex; gap: 15px; align-items: center;">
-                            <div>
-                                <div class="metric-label">Vitórias</div>
-                                <div style="font-weight: 700; color: #e2e8f0;">{wins}</div>
-                            </div>
-                            <div style="background: #1f2a3a; padding: 8px 16px; border-radius: 8px; text-align: center;">
-                                <div class="metric-label">Pontos</div>
-                                <div class="metric-value" style="color: #e10600;">{points}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                card_html = f'<div class="f1-card {card_class}"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="display: flex; align-items: center; gap: 15px;"><span style="font-size: 1.5rem; font-weight: 900; color: {"#ffd700" if pos==1 else "#c0c0c0" if pos==2 else "#cd7f32" if pos==3 else "#ffffff"};">#{pos}</span><div><h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{flag} {driver_name}</h3><p style="margin: 2px 0 0 0; font-size: 0.85rem; color: #94a3b8;">{badge} {team_name}</p></div></div><div style="text-align: right; display: flex; gap: 15px; align-items: center;"><div><div class="metric-label">Vitórias</div><div style="font-weight: 700; color: #e2e8f0;">{wins}</div></div><div style="background: #1f2a3a; padding: 8px 16px; border-radius: 8px; text-align: center;"><div class="metric-label">Pontos</div><div class="metric-value" style="color: #e10600;">{points}</div></div></div></div></div>'
+                st.markdown(card_html, unsafe_allow_html=True)
         except Exception:
             st.info("Carregando classificação de pilotos...")
             
@@ -389,28 +351,8 @@ elif menu == "🏆 Classificação do Campeonato":
                 points = item["points"]
                 wins = item["wins"]
                 
-                st.markdown(f"""
-                <div class="f1-card {card_class}">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div style="display: flex; align-items: center; gap: 15px;">
-                            <span style="font-size: 1.5rem; font-weight: 900; color: {'#ffd700' if pos==1 else '#c0c0c0' if pos==2 else '#cd7f32' if pos==3 else '#ffffff'};">#{pos}</span>
-                            <div>
-                                <h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{badge} {team_name}</h3>
-                            </div>
-                        </div>
-                        <div style="text-align: right; display: flex; gap: 15px; align-items: center;">
-                            <div>
-                                <div class="metric-label">Vitórias</div>
-                                <div style="font-weight: 700; color: #e2e8f0;">{wins}</div>
-                            </div>
-                            <div style="background: #1f2a3a; padding: 8px 16px; border-radius: 8px; text-align: center;">
-                                <div class="metric-label">Pontos</div>
-                                <div class="metric-value" style="color: #e10600;">{points}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                card_html = f'<div class="f1-card {card_class}"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="display: flex; align-items: center; gap: 15px;"><span style="font-size: 1.5rem; font-weight: 900; color: {"#ffd700" if pos==1 else "#c0c0c0" if pos==2 else "#cd7f32" if pos==3 else "#ffffff"};">#{pos}</span><div><h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{badge} {team_name}</h3></div></div><div style="text-align: right; display: flex; gap: 15px; align-items: center;"><div><div class="metric-label">Vitórias</div><div style="font-weight: 700; color: #e2e8f0;">{wins}</div></div><div style="background: #1f2a3a; padding: 8px 16px; border-radius: 8px; text-align: center;"><div class="metric-label">Pontos</div><div class="metric-value" style="color: #e10600;">{points}</div></div></div></div></div>'
+                st.markdown(card_html, unsafe_allow_html=True)
         except Exception:
             st.info("Carregando classificação de construtores...")
 
@@ -429,21 +371,7 @@ elif menu == "📅 Próximos GPs (Calendário)":
             country = race["Circuit"]["Location"]["country"]
             date = race["date"]
             
-            card_html = f"""
-            <div class="f1-card standard-card">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div>
-                        <span class="badge-pill">Etapa {round_num}</span>
-                        <h3 style="margin: 8px 0 4px 0; font-size: 1.05rem; color: #ffffff;">🏁 {race_name}</h3>
-                        <p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">📍 {circuit} ({country})</p>
-                    </div>
-                    <div style="text-align: right;">
-                        <div class="metric-label">Data</div>
-                        <div style="font-weight: 700; color: #e2e8f0; font-size: 0.95rem;">📅 {date}</div>
-                    </div>
-                </div>
-            </div>
-            """
+            card_html = f'<div class="f1-card standard-card"><div style="display: flex; justify-content: space-between; align-items: flex-start;"><div><span class="badge-pill">Etapa {round_num}</span><h3 style="margin: 8px 0 4px 0; font-size: 1.05rem; color: #ffffff;">🏁 {race_name}</h3><p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">📍 {circuit} ({country})</p></div><div style="text-align: right;"><div class="metric-label">Data</div><div style="font-weight: 700; color: #e2e8f0; font-size: 0.95rem;">📅 {date}</div></div></div></div>'
             cols[idx % 2].markdown(card_html, unsafe_allow_html=True)
             
     except Exception:
