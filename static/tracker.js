@@ -192,31 +192,34 @@ def get_driver_flag(nationality):
     }
     return flags.get(nationality, "🏁")
 
-# URLs Otimizadas (Formato PNG) dos Logotipos Reais das Equipes
+# Função com CDN Proxy (Garante que os escudos reais carreguem sem bloqueios)
 def get_team_logo_url(team_name):
     t = team_name.lower()
     if "ferrari" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Scuderia_Ferrari_Logo.svg/120px-Scuderia_Ferrari_Logo.svg.png"
+        path = "upload.wikimedia.org/wikipedia/commons/e/ec/Scuderia_Ferrari_Logo.svg"
     elif "red bull" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Red_Bull_Racing_logo.svg/120px-Red_Bull_Racing_logo.svg.png"
+        path = "upload.wikimedia.org/wikipedia/commons/f/f3/Red_Bull_Racing_logo.svg"
     elif "mercedes" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Mercedes_AMG_Petronas_F1_Team_Logo.svg/120px-Mercedes_AMG_Petronas_F1_Team_Logo.svg.png"
+        path = "upload.wikimedia.org/wikipedia/commons/f/fb/Mercedes_AMG_Petronas_F1_Team_Logo.svg"
     elif "mclaren" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/McLaren_Racing_logo.svg/120px-McLaren_Racing_logo.svg.png"
+        path = "upload.wikimedia.org/wikipedia/commons/6/66/McLaren_Racing_logo.svg"
     elif "aston martin" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Aston_Martin_Aramco_F1_logo.svg/120px-Aston_Martin_Aramco_F1_logo.svg.png"
+        path = "upload.wikimedia.org/wikipedia/commons/7/72/Aston_Martin_Aramco_F1_logo.svg"
     elif "alpine" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/Alpine_F1_Team_Logo.svg/120px-Alpine_F1_Team_Logo.svg.png"
+        path = "upload.wikimedia.org/wikipedia/commons/7/73/Alpine_F1_Team_Logo.svg"
     elif "williams" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Williams_F1_logo_2020.svg/120px-Williams_F1_logo_2020.svg.png"
+        path = "upload.wikimedia.org/wikipedia/commons/e/e1/Williams_F1_logo_2020.svg"
     elif "rb" in t or "visa cash app" in t or "racing bulls" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Visa_Cash_App_RB_Logo.svg/120px-Visa_Cash_App_RB_Logo.svg.png"
+        path = "upload.wikimedia.org/wikipedia/commons/c/c2/Visa_Cash_App_RB_Logo.svg"
     elif "sauber" in t or "kick" in t or "stake" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Stake_F1_Team_Kick_Sauber_logo.svg/120px-Stake_F1_Team_Kick_Sauber_logo.svg.png"
+        path = "upload.wikimedia.org/wikipedia/commons/4/4b/Stake_F1_Team_Kick_Sauber_logo.svg"
     elif "haas" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Haas_F1_Team_Logo.svg/120px-Haas_F1_Team_Logo.svg.png"
+        path = "upload.wikimedia.org/wikipedia/commons/d/d4/Haas_F1_Team_Logo.svg"
     else:
-        return "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/F1.svg/120px-F1.svg.png"
+        path = "upload.wikimedia.org/wikipedia/commons/3/33/F1.svg"
+    
+    # Usa o Weserv CDN Proxy para carregar a imagem com segurança em qualquer navegador
+    return f"https://images.weserv.nl/?url={path}&w=100&h=100&fit=contain"
 
 # Menu Lateral de Navegação
 st.sidebar.title("🏁 F1 Hub Pro")
