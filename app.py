@@ -1,385 +1,399 @@
 import streamlit as st
 
-# 1. Configuração da Página para Largura Total
 st.set_page_config(
-    page_title="F1 Live Telemetry & Track Map",
-    page_icon="🏎️",
-    layout="wide",
-    initial_sidebar_state="collapsed",
+    page_title="Painel F1 Pro - Telemetria & AO VIVO", page_icon="🏎️", layout="wide"
 )
 
-# 2. Ocultação do cabeçalho, rodapé e ajuste de margens nativas
 st.markdown(
     """
     <style>
         .block-container {
             padding-top: 0.4rem !important;
             padding-bottom: 0rem !important;
-            padding-left: 0.8rem !important;
-            padding-right: 0.8rem !important;
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
         }
         header {visibility: hidden;}
         footer {visibility: hidden;}
-        .stApp { background-color: #0e1117; }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-# 3. Código HTML/JS com Pista SVG Animada e Tempo Real
-f1_live_html = """
+f1_dashboard_html = """
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <style>
-        body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        :root {
             background-color: #0e1117;
-            color: #ffffff;
+            color: #fafafa;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        body {
             margin: 0;
-            padding: 0;
+            padding: 4px;
+            background-color: #0e1117;
+            color: #fafafa;
         }
-        .f1-header {
-            background: linear-gradient(90deg, #e10600 0%, #15151e 70%);
-            padding: 12px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
-            margin-bottom: 12px;
-        }
-        .f1-logo {
-            font-size: 20px;
-            font-weight: 900;
-            font-style: italic;
-            letter-spacing: 2px;
-            color: #ffffff;
-        }
-        .f1-logo span {
-            color: #e10600;
-            background: #ffffff;
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin-left: 4px;
-        }
-        .live-indicator {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(34, 197, 94, 0.2);
-            border: 1px solid #22c55e;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: bold;
-            color: #4ade80;
-        }
-        .pulse-dot {
-            width: 8px;
-            height: 8px;
-            background-color: #22c55e;
-            border-radius: 50%;
-            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
-            animation: pulse-ring 1.5s infinite;
-        }
-        @keyframes pulse-ring {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-        }
-
-        .grid-container {
-            display: grid;
-            grid-template-columns: 1.2fr 1fr;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-        @media (max-width: 900px) {
-            .grid-container { grid-template-columns: 1fr; }
-        }
-
-        .card {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-        }
-        .card-title {
-            font-size: 14px;
-            font-weight: bold;
-            color: #f0f6fc;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #30363d;
+        .sticky-header-container {
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            background-color: #0e1117;
             padding-bottom: 6px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
-
-        /* Container do Mapa da Pista */
-        .track-container {
-            position: relative;
-            background: #0d1117;
+        @keyframes blink {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.3; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .blinking-dot {
+            height: 9px;
+            width: 9px;
+            background-color: #ef4444;
+            border-radius: 50%;
+            display: inline-block;
+            animation: blink 2s infinite ease-in-out;
+            margin-right: 5px;
+            box-shadow: 0 0 8px #ef4444;
+        }
+        .card {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        .controls {
+            margin-bottom: 8px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            background: #dc2626;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #f87171;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .controls select, .controls input {
+            background: #0f172a;
+            color: #fff;
+            border: 1px solid #334155;
+            padding: 6px 10px;
             border-radius: 6px;
-            border: 1px solid #21262d;
-            height: 320px;
+            font-size: 13px;
+            outline: none;
+        }
+        .standings-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #1e293b;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #334155;
+            margin-top: 10px;
+        }
+        .standings-table th, .standings-table td {
+            padding: 8px 10px;
+            text-align: center;
+            font-size: 12px;
+        }
+        .standings-table th {
+            background-color: #0f172a;
+            color: #f87171;
+            font-weight: bold;
+        }
+        .standings-table tr:nth-child(even) {
+            background-color: #162032;
+        }
+        .standings-table td:nth-child(2) {
+            text-align: left;
+            font-weight: bold;
+        }
+        .circuit-canvas-container {
+            position: relative;
+            background: #0b0f19;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            height: 380px;
             display: flex;
             justify-content: center;
             align-items: center;
             overflow: hidden;
         }
-        
-        /* Legenda dos carros */
-        .track-legend {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 10px;
-            font-size: 11px;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            background: #0d1117;
-            padding: 3px 8px;
-            border-radius: 4px;
-            border: 1px solid #30363d;
-        }
-        .legend-color {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
-
-        /* Tabelas */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-        }
-        th, td {
-            padding: 6px 8px;
-            text-align: left;
-            border-bottom: 1px solid #21262d;
-        }
-        th { color: #8b949e; background: #0d1117; font-weight: 600; }
-        tr:hover { background: #1f242c; }
-        .pos-1 { color: #facc15; font-weight: bold; }
-        .pos-2 { color: #e5e7eb; font-weight: bold; }
-        .pos-3 { color: #fb923c; font-weight: bold; }
-
-        /* Telemetria Ao Vivo */
-        .telemetry-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 8px;
-            margin-top: 8px;
-        }
-        .tele-box {
-            background: #0d1117;
-            border: 1px solid #30363d;
-            padding: 8px;
-            border-radius: 6px;
-            text-align: center;
-        }
-        .tele-label { font-size: 10px; color: #8b949e; text-transform: uppercase; }
-        .tele-val { font-size: 16px; font-weight: bold; color: #58a6ff; margin-top: 2px; }
     </style>
 </head>
 <body>
-
-    <!-- Header com Relógio Ativo -->
-    <div class="f1-header">
-        <div class="f1-logo">FORMULA 1 <span>LIVE TRACK</span></div>
-        <div class="live-indicator">
-            <div class="pulse-dot"></div>
-            SESSÃO AO VIVO <span id="live-timer" style="margin-left: 5px; font-family: monospace;">00:00:00</span>
-        </div>
-    </div>
-
-    <div class="grid-container">
-        <!-- Coluna Esquerda: Mini-mapa do Circuito com pontos correndo -->
-        <div class="card">
-            <div class="card-title">
-                <span>🗺️ Mapa do Circuito (Telemetria em Tempo Real)</span>
-                <span style="font-size: 11px; color: #8b949e;" id="lap-counter">Volta 48 / 78</span>
+    <div class="sticky-header-container">
+        <h3 style="margin-top:0; margin-bottom:6px; display:flex; align-items:center; gap:8px; font-size: 18px;">
+            🏎️ F1 Pro Telemetry & Live Command Center
+        </h3>
+        <div class="controls">
+            <div>
+                <label style="font-size:11px; color:#fee2e2; display:block; margin-bottom:2px; font-weight:bold;">Visualização</label>
+                <select id="viewSelect" onchange="switchView()">
+                    <option value="live">⚡ Telemetria & Circuito AO VIVO</option>
+                    <option value="calendar">📅 Calendário & Próximos GPs</option>
+                    <option value="standings">🏆 Classificação (Pilotos & Construtores)</option>
+                </select>
             </div>
-            
-            <div class="track-container">
-                <!-- Traçado SVG do Circuito -->
-                <svg width="100%" height="100%" viewBox="0 0 500 300" style="position: absolute;">
-                    <!-- Sombra e Linha da Pista -->
-                    <path id="race-track" d="M 60 150 C 60 60, 140 40, 220 50 C 320 60, 420 80, 430 150 C 440 220, 360 260, 260 260 C 160 260, 100 240, 70 200 Z" 
-                          fill="none" stroke="#21262d" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M 60 150 C 60 60, 140 40, 220 50 C 320 60, 420 80, 430 150 C 440 220, 360 260, 260 260 C 160 260, 100 240, 70 200 Z" 
-                          fill="none" stroke="#30363d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-
-                <!-- Pontos dos Carros injetados via JavaScript -->
-                <div id="cars-container" style="position: absolute; width: 100%; height: 100%; pointer-events: none;"></div>
-            </div>
-
-            <!-- Legenda com Cores das Equipes -->
-            <div class="track-legend" id="track-legend"></div>
-        </div>
-
-        <!-- Coluna Direita: Tabela de Posições e Telemetria do Líder -->
-        <div class="card">
-            <div class="card-title">
-                <span>📊 Classificação & Intervalos</span>
-                <span style="font-size: 11px; color: #22c55e;">● Sincronizado</span>
-            </div>
-            <table>
-                <thead>
-                    <tr><th>Pos</th><th>Piloto</th><th>Equipe</th><th>Gap</th><th>Pneu</th></tr>
-                </thead>
-                <tbody id="standings-tbody">
-                    <!-- Preenchido por JS -->
-                </tbody>
-            </table>
-
-            <div style="margin-top: 14px;">
-                <div class="card-title" style="margin-bottom: 6px; font-size: 12px;">⚡ Telemetria do Líder (Verstappen)</div>
-                <div class="telemetry-grid">
-                    <div class="tele-box">
-                        <div class="tele-label">Velocidade</div>
-                        <div class="tele-val" id="tele-speed">314 km/h</div>
-                    </div>
-                    <div class="tele-box">
-                        <div class="tele-label">Marcha</div>
-                        <div class="tele-val" id="tele-gear">7</div>
-                    </div>
-                    <div class="tele-box">
-                        <div class="tele-label">RPM do Motor</div>
-                        <div class="tele-val" id="tele-rpm">11,450</div>
-                    </div>
-                    <div class="tele-box">
-                        <div class="tele-label">Acelerador</div>
-                        <div class="tele-val" id="tele-throttle">100%</div>
-                    </div>
-                </div>
+            <div id="gpInfoContainer" style="color: #fff; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 6px; padding-bottom: 4px;">
+                📍 GP Atual: <span id="currentGpName" style="color: #facc15;">Carregando...</span>
             </div>
         </div>
     </div>
+
+    <div id="mainContainer">Carregando dados da Fórmula 1...</div>
 
     <script>
-        // 1. Cronômetro da Sessão em Tempo Real
-        let secondsElapsed = 3640; 
-        setInterval(() => {
-            secondsElapsed++;
-            let hrs = Math.floor(secondsElapsed / 3600).toString().padStart(2, '0');
-            let mins = Math.floor((secondsElapsed % 3600) / 60).toString().padStart(2, '0');
-            let secs = (secondsElapsed % 60).toString().padStart(2, '0');
-            document.getElementById('live-timer').innerText = `${hrs}:${mins}:${secs}`;
-        }, 1000);
+        let currentView = 'live';
 
-        // 2. Dados dos Carros (Posições, Cores e Velocidades na Pista)
-        const cars = [
-            { id: 1, name: "M. Verstappen", code: "VER", team: "Red Bull", color: "#3671C6", progress: 0.18, speed: 0.0013, tire: "🟡 M", gap: "LEADER", pos: 1 },
-            { id: 2, name: "L. Hamilton", code: "HAM", team: "Ferrari", color: "#E8002D", progress: 0.14, speed: 0.00125, tire: "🟡 M", gap: "+2.1s", pos: 2 },
-            { id: 3, name: "C. Leclerc", code: "LEC", team: "Ferrari", color: "#E8002D", progress: 0.10, speed: 0.00122, tire: "🔴 H", gap: "+3.9s", pos: 3 },
-            { id: 4, name: "L. Norris", code: "NOR", team: "McLaren", color: "#FF8000", progress: 0.07, speed: 0.00118, tire: "🟡 M", gap: "+7.4s", pos: 4 },
-            { id: 5, name: "O. Piastri", code: "PIA", team: "McLaren", color: "#FF8000", progress: 0.04, speed: 0.00115, tire: "⚪ H", gap: "+10.8s", pos: 5 },
-            { id: 6, name: "G. Russell", code: "RUS", team: "Mercedes", color: "#27F4D2", progress: 0.01, speed: 0.00110, tire: "🟡 M", gap: "+13.2s", pos: 6 }
-        ];
-
-        // Montar Legenda
-        const legendContainer = document.getElementById('track-legend');
-        cars.forEach(car => {
-            legendContainer.innerHTML += `
-                <div class="legend-item">
-                    <div class="legend-color" style="background: ${car.color};"></div>
-                    <span><b>${car.code}</b></span>
-                </div>
-            `;
-        });
-
-        // 3. Renderização do Movimento dos Pontos no Circuito SVG
-        const trackPath = document.getElementById('race-track');
-        const pathLength = trackPath.getTotalLength();
-        const carsContainer = document.getElementById('cars-container');
-        const carElements = {};
-
-        cars.forEach(car => {
-            const dot = document.createElement('div');
-            dot.style.position = 'absolute';
-            dot.style.width = '11px';
-            dot.style.height = '11px';
-            dot.style.backgroundColor = car.color;
-            dot.style.borderRadius = '50%';
-            dot.style.border = '2px solid #ffffff';
-            dot.style.transform = 'translate(-50%, -50%)';
-            dot.style.boxShadow = `0 0 8px ${car.color}`;
-            dot.style.zIndex = '10';
-            
-            // Sigla do piloto flutuando ao lado do ponto
-            const label = document.createElement('div');
-            label.innerText = car.code;
-            label.style.position = 'absolute';
-            label.style.fontSize = '9px';
-            label.style.color = '#fff';
-            label.style.fontWeight = 'bold';
-            label.style.transform = 'translate(10px, -10px)';
-            label.style.textShadow = '1px 1px 2px #000';
-            dot.appendChild(label);
-
-            carsContainer.appendChild(dot);
-            carElements[car.id] = dot;
-        });
-
-        // Loop de animação contínua dos pontos ao longo da linha da pista
-        function animateTracks() {
-            cars.forEach(car => {
-                car.progress += car.speed;
-                if (car.progress > 1) car.progress = 0; // Dá a volta completa
-
-                // Pega a coordenada exata (X, Y) baseada no comprimento do traçado SVG
-                const point = trackPath.getPointAtLength(car.progress * pathLength);
-                
-                const xPercent = (point.x / 500) * 100;
-                const yPercent = (point.y / 300) * 100;
-
-                const dot = carElements[car.id];
-                dot.style.left = xPercent + '%';
-                dot.style.top = yPercent + '%';
-            });
-            requestAnimationFrame(animateTracks);
+        function switchView() {
+            currentView = document.getElementById('viewSelect').value;
+            loadData();
         }
-        requestAnimationFrame(animateTracks);
 
-        // 4. Atualização dinâmica dos dados da tabela e telemetria (Efeito Tempo Real)
-        setInterval(() => {
-            // Oscilação realista de velocidade e RPM do líder
-            let currentSpeed = Math.floor(312 + Math.random() * 10);
-            let currentRpm = Math.floor(11400 + Math.random() * 250).toLocaleString();
-            document.getElementById('tele-speed').innerText = currentSpeed + ' km/h';
-            document.getElementById('tele-rpm').innerText = currentRpm;
-
-            // Atualiza a tabela de posições em tempo real
-            let tbody = document.getElementById('standings-tbody');
-            let html = '';
-            cars.forEach(car => {
-                let posClass = car.pos === 1 ? 'pos-1' : (car.pos === 2 ? 'pos-2' : (car.pos === 3 ? 'pos-3' : ''));
-                html += `
-                    <tr>
-                        <td class="${posClass}">${car.pos}</td>
-                        <td><b>${car.name}</b></td>
-                        <td>${car.team}</td>
-                        <td style="color: #8b949e;">${car.gap}</td>
-                        <td>${car.tire}</td>
-                    </tr>
+        async function loadData() {
+            let container = document.getElementById('mainContainer');
+            if (currentView === 'live') {
+                container.innerHTML = `
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 14px; font-weight: bold; color: #f87171;">
+                                <span class="blinking-dot"></span> SESSÃO AO VIVO - TELEMETRIA DE POSIÇÃO
+                            </span>
+                            <span id="sessionTitle" style="font-size: 12px; color: #94a3b8;">Conectando à OpenF1 API...</span>
+                        </div>
+                        <div class="circuit-canvas-container">
+                            <canvas id="trackCanvas" width="700" height="360" style="background: #090d16; border-radius: 6px;"></canvas>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div style="font-weight: bold; color: #f87171; margin-bottom: 6px; font-size: 13px;">🏎️ Grid & Posições Atuais</div>
+                        <div id="liveGridContainer">Carregando posições...</div>
+                    </div>
                 `;
-            });
-            tbody.innerHTML = html;
-        }, 1500);
+                fetchLiveTelemetry();
+            } else if (currentView === 'calendar') {
+                container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">Carregando calendário de GPs (Jolpica F1)...</div>`;
+                fetchCalendar();
+            } else if (currentView === 'standings') {
+                container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">Carregando classificação do campeonato...</div>`;
+                fetchStandings();
+            }
+        }
+
+        async function fetchLiveTelemetry() {
+            try {
+                let sessRes = await fetch('https://api.openf1.org/v1/sessions?session_key=latest');
+                let sessData = await sessRes.json();
+                if (sessData.length > 0) {
+                    let s = sessData[0];
+                    document.getElementById('currentGpName').innerText = s.session_name + " (" + s.year + ")";
+                    document.getElementById('sessionTitle').innerText = s.circuit_short_name || "Circuito F1";
+                    
+                    let sessionKey = s.session_key;
+
+                    let driversRes = await fetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`);
+                    let driversData = await driversRes.json();
+                    let driverMap = {};
+                    driversData.forEach(d => {
+                        driverMap[d.driver_number] = {
+                            name: d.broadcast_name || d.full_name,
+                            team: d.team_name,
+                            color: "#" + (d.team_colour || "ffffff")
+                        };
+                    });
+
+                    let posRes = await fetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`);
+                    let posData = await posRes.json();
+                    
+                    let gridHtml = `
+                        <table class="standings-table">
+                            <thead>
+                                <tr><th>Pos</th><th>Piloto</th><th>Equipe</th><th>Nº</th></tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    let latestPositions = {};
+                    posData.forEach(p => { latestPositions[p.driver_number] = p.position; });
+                    
+                    let sortedDrivers = Object.keys(latestPositions).sort((a,b) => latestPositions[a] - latestPositions[b]);
+                    if (sortedDrivers.length === 0) sortedDrivers = Object.keys(driverMap);
+
+                    sortedDrivers.forEach((num, index) => {
+                        let dInfo = driverMap[num] || { name: `Piloto #${num}`, team: 'Equipe F1', color: '#fff' };
+                        let pos = latestPositions[num] || (index + 1);
+                        gridHtml += `
+                            <tr>
+                                <td><b>P${pos}</b></td>
+                                <td style="border-left: 4px solid ${dInfo.color};">${dInfo.name}</td>
+                                <td>${dInfo.team}</td>
+                                <td>#${num}</td>
+                            </tr>
+                        `;
+                    });
+                    gridHtml += `</tbody></table>`;
+                    let gridContainer = document.getElementById('liveGridContainer');
+                    if (gridContainer) gridContainer.innerHTML = gridHtml;
+
+                    let locRes = await fetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`);
+                    let locData = await locRes.json();
+                    
+                    let canvas = document.getElementById('trackCanvas');
+                    if (canvas) {
+                        let ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                        let xCoords = locData.map(l => l.x);
+                        let yCoords = locData.map(l => l.y);
+                        if (xCoords.length > 0) {
+                            let minX = Math.min(...xCoords), maxX = Math.max(...xCoords);
+                            let minY = Math.min(...yCoords), maxY = Math.max(...yCoords);
+
+                            ctx.fillStyle = '#1e293b';
+                            locData.slice(-1500).forEach(l => {
+                                let cx = ((l.x - minX) / (maxX - minX || 1)) * 640 + 30;
+                                let cy = ((l.y - minY) / (maxY - minY || 1)) * 300 + 30;
+                                ctx.fillRect(cx, cy, 2, 2);
+                            });
+
+                            let latestLocs = {};
+                            locData.forEach(l => { latestLocs[l.driver_number] = l; });
+
+                            Object.keys(latestLocs).forEach(num => {
+                                let l = latestLocs[num];
+                                let dInfo = driverMap[num] || { color: '#facc15' };
+                                let cx = ((l.x - minX) / (maxX - minX || 1)) * 640 + 30;
+                                let cy = ((l.y - minY) / (maxY - minY || 1)) * 300 + 30;
+
+                                ctx.beginPath();
+                                ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
+                                ctx.fillStyle = dInfo.color;
+                                ctx.fill();
+                                ctx.lineWidth = 1;
+                                ctx.strokeStyle = '#fff';
+                                ctx.stroke();
+
+                                ctx.fillStyle = '#fff';
+                                ctx.font = '9px sans-serif';
+                                ctx.fillText(num, cx + 7, cy + 3);
+                            });
+                        } else {
+                            ctx.fillStyle = '#94a3b8';
+                            ctx.font = '12px sans-serif';
+                            ctx.fillText("Aguardando telemetria em tempo real para o circuito...", 180, 180);
+                        }
+                    }
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function fetchCalendar() {
+            try {
+                let res = await fetch('https://api.jolpi.ca/ergast/f1/current.json');
+                let data = await res.json();
+                let races = data.MRData.RaceTable.Races;
+                document.getElementById('currentGpName').innerText = "Calendário " + data.MRData.season;
+
+                let html = `
+                    <h3 style="color:#f87171; margin-bottom:8px; font-size:15px;">📅 Calendário da Temporada F1</h3>
+                    <table class="standings-table">
+                        <thead>
+                            <tr><th>Etapa</th><th>Nome do GP</th><th>Circuito</th><th>Data</th></tr>
+                        </thead>
+                        <tbody>
+                `;
+                races.forEach(r => {
+                    html += `
+                        <tr>
+                            <td><b>R${r.round}</b></td>
+                            <td>${r.raceName}</td>
+                            <td>${r.Circuit.circuitName} (${r.Circuit.Location.locality}, ${r.Circuit.Location.country})</td>
+                            <td>${r.date}</td>
+                        </tr>
+                    `;
+                });
+                html += `</tbody></table>`;
+                document.getElementById('mainContainer').innerHTML = html;
+            } catch(e) {
+                document.getElementById('mainContainer').innerHTML = "<div style='text-align:center; color:#94a3b8; padding:20px;'>Erro ao carregar o calendário.</div>";
+            }
+        }
+
+        async function fetchStandings() {
+            try {
+                let resD = await fetch('https://api.jolpi.ca/ergast/f1/current/driverStandings.json');
+                let dataD = await resD.json();
+                let dStandings = dataD.MRData.StandingsTable.StandingsLists[0].DriverStandings;
+
+                let resC = await fetch('https://api.jolpi.ca/ergast/f1/current/constructorStandings.json');
+                let dataC = await resC.json();
+                let cStandings = dataC.MRData.StandingsTable.StandingsLists[0].ConstructorStandings;
+
+                document.getElementById('currentGpName').innerText = "Classificação do Campeonato";
+
+                let html = `
+                    <h3 style="color:#f87171; margin-bottom:8px; font-size:15px;">🏆 Campeonato de Pilotos</h3>
+                    <table class="standings-table">
+                        <thead>
+                            <tr><th>Pos</th><th>Piloto</th><th>Equipe</th><th>Pontos</th><th>Vitórias</th></tr>
+                        </thead>
+                        <tbody>
+                `;
+                dStandings.forEach(ds => {
+                    let team = ds.Constructors[0] ? ds.Constructors[0].name : '';
+                    html += `
+                        <tr>
+                            <td><b>${ds.position}</b></td>
+                            <td>${ds.Driver.givenName} ${ds.Driver.familyName}</td>
+                            <td>${team}</td>
+                            <td><b>${ds.points}</b></td>
+                            <td>${ds.wins}</td>
+                        </tr>
+                    `;
+                });
+                html += `</tbody></table>`;
+
+                html += `
+                    <h3 style="color:#f87171; margin-top:20px; margin-bottom:8px; font-size:15px;">🛠️ Campeonato de Construtores</h3>
+                    <table class="standings-table">
+                        <thead>
+                            <tr><th>Pos</th><th>Construtor</th><th>Nacionalidade</th><th>Pontos</th><th>Vitórias</th></tr>
+                        </thead>
+                        <tbody>
+                `;
+                cStandings.forEach(cs => {
+                    html += `
+                        <tr>
+                            <td><b>${cs.position}</b></td>
+                            <td>${cs.Constructor.name}</td>
+                            <td>${cs.Constructor.nationality}</td>
+                            <td><b>${cs.points}</b></td>
+                            <td>${cs.wins}</td>
+                        </tr>
+                    `;
+                });
+                html += `</tbody></table>`;
+
+                document.getElementById('mainContainer').innerHTML = html;
+            } catch(e) {
+                document.getElementById('mainContainer').innerHTML = "<div style='text-align:center; color:#94a3b8; padding:20px;'>Erro ao carregar a classificação.</div>";
+            }
+        }
+
+        loadData();
+        setInterval(() => {
+            if (currentView === 'live') fetchLiveTelemetry();
+        }, 5000);
     </script>
 </body>
 </html>
 """
 
-# Renderizando no Streamlit sem barra lateral e ocupando a largura total
-st.components.v1.html(f1_live_html, height=520, scrolling=True)
+st.components.v1.html(f1_dashboard_html, height=850, scrolling=True)
