@@ -192,31 +192,31 @@ def get_driver_flag(nationality):
     }
     return flags.get(nationality, "🏁")
 
-# URL dos Logotipos Reais das Equipes (Escudos Oficiais)
+# URLs Otimizadas (Formato PNG) dos Logotipos Reais das Equipes
 def get_team_logo_url(team_name):
     t = team_name.lower()
     if "ferrari" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/e/ec/Scuderia_Ferrari_Logo.svg"
+        return "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/Scuderia_Ferrari_Logo.svg/120px-Scuderia_Ferrari_Logo.svg.png"
     elif "red bull" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/f/f3/Red_Bull_Racing_logo.svg"
+        return "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Red_Bull_Racing_logo.svg/120px-Red_Bull_Racing_logo.svg.png"
     elif "mercedes" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/f/fb/Mercedes_AMG_Petronas_F1_Team_Logo.svg"
+        return "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fb/Mercedes_AMG_Petronas_F1_Team_Logo.svg/120px-Mercedes_AMG_Petronas_F1_Team_Logo.svg.png"
     elif "mclaren" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/6/66/McLaren_Racing_logo.svg"
+        return "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/McLaren_Racing_logo.svg/120px-McLaren_Racing_logo.svg.png"
     elif "aston martin" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/7/72/Aston_Martin_Aramco_F1_logo.svg"
+        return "https://upload.wikimedia.org/wikipedia/commons/thumb/7/72/Aston_Martin_Aramco_F1_logo.svg/120px-Aston_Martin_Aramco_F1_logo.svg.png"
     elif "alpine" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/7/73/Alpine_F1_Team_Logo.svg"
+        return "https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/Alpine_F1_Team_Logo.svg/120px-Alpine_F1_Team_Logo.svg.png"
     elif "williams" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/e/e1/Williams_F1_logo_2020.svg"
+        return "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e1/Williams_F1_logo_2020.svg/120px-Williams_F1_logo_2020.svg.png"
     elif "rb" in t or "visa cash app" in t or "racing bulls" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/c/c2/Visa_Cash_App_RB_Logo.svg"
+        return "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Visa_Cash_App_RB_Logo.svg/120px-Visa_Cash_App_RB_Logo.svg.png"
     elif "sauber" in t or "kick" in t or "stake" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/4/4b/Stake_F1_Team_Kick_Sauber_logo.svg"
+        return "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Stake_F1_Team_Kick_Sauber_logo.svg/120px-Stake_F1_Team_Kick_Sauber_logo.svg.png"
     elif "haas" in t:
-        return "https://upload.wikimedia.org/wikipedia/commons/d/d4/Haas_F1_Team_Logo.svg"
+        return "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Haas_F1_Team_Logo.svg/120px-Haas_F1_Team_Logo.svg.png"
     else:
-        return "https://upload.wikimedia.org/wikipedia/commons/3/33/F1.svg"
+        return "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/F1.svg/120px-F1.svg.png"
 
 # Menu Lateral de Navegação
 st.sidebar.title("🏁 F1 Hub Pro")
@@ -448,7 +448,7 @@ if menu == "🏎️ Telemetria ao Vivo":
                                     <div style="font-size: 0.6rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <img src="{logo_url}" width="22" height="22" style="object-fit: contain;" />
+                                    <img src="{logo_url}" width="24" height="24" style="object-fit: contain; background: transparent;" />
                                     <div>
                                         <div style="display: flex; align-items: center;"><span class="timing-driver">{pilot}</span></div>
                                         <div class="timing-team">{team}</div>
@@ -502,7 +502,7 @@ elif menu == "🏆 Classificação do Campeonato":
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <span style="font-size: 1.5rem; font-weight: 900; color: {"#ffd700" if pos==1 else "#c0c0c0" if pos==2 else "#cd7f32" if pos==3 else "#ffffff"};">#{pos}</span>
                             <div style="display: flex; align-items: center; gap: 12px;">
-                                <img src="{logo_url}" width="32" height="32" style="object-fit: contain;" />
+                                <img src="{logo_url}" width="32" height="32" style="object-fit: contain; background: transparent;" />
                                 <div>
                                     <h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{flag} {driver_name}</h3>
                                     <p style="margin: 2px 0 0 0; font-size: 0.85rem; color: #94a3b8;">{team_name}</p>
@@ -544,7 +544,7 @@ elif menu == "🏆 Classificação do Campeonato":
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <span style="font-size: 1.5rem; font-weight: 900; color: {"#ffd700" if pos==1 else "#c0c0c0" if pos==2 else "#cd7f32" if pos==3 else "#ffffff"};">#{pos}</span>
                             <div style="display: flex; align-items: center; gap: 12px;">
-                                <img src="{logo_url}" width="36" height="36" style="object-fit: contain;" />
+                                <img src="{logo_url}" width="36" height="36" style="object-fit: contain; background: transparent;" />
                                 <div>
                                     <h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{team_name}</h3>
                                 </div>
