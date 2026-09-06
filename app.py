@@ -1,7 +1,7 @@
 import streamlit as str_lit
 
 str_lit.set_page_config(
-    page_title="Painel F1 Pro - Tempo Real & Classificação", page_icon="🏎️", layout="wide"
+    page_title="Painel F1 Pro - Telemetria & AO VIVO", page_icon="🏎️", layout="wide"
 )
 
 str_lit.markdown(
@@ -124,46 +124,24 @@ f1_dashboard_html = """
             align-items: center;
             overflow: hidden;
         }
-        .badge-pit {
-            background-color: #eab308;
-            color: #000;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: bold;
-            margin-left: 5px;
-            display: inline-block;
-        }
-        .waiting-banner {
-            background: #0f172a;
-            border: 1px dashed #f59e0b;
-            padding: 20px;
-            text-align: center;
-            border-radius: 8px;
-            color: #ffb020;
-            font-weight: bold;
-            margin-bottom: 12px;
-        }
     </style>
 </head>
 <body>
     <div class="sticky-header-container">
         <h3 style="margin-top:0; margin-bottom:6px; display:flex; align-items:center; gap:8px; font-size: 18px;">
-            🏎️ F1 Pro - Central de Classificação & Tempo Real
+            🏎️ F1 Pro Telemetry & Live Command Center
         </h3>
         <div class="controls">
             <div>
                 <label style="font-size:11px; color:#fee2e2; display:block; margin-bottom:2px; font-weight:bold;">Visualização</label>
                 <select id="viewSelect" onchange="switchView()">
-                    <option value="standings" selected>🏆 Classificação & Grid (Pré-Sessão)</option>
-                    <option value="live">⚡ Tempo Real (AO VIVO)</option>
-                    <option value="calendar">📅 Calendário</option>
+                    <option value="live">⚡ Telemetria & Circuito AO VIVO</option>
+                    <option value="calendar">📅 Calendário & Próximos GPs</option>
+                    <option value="standings">🏆 Classificação (Pilotos & Construtores)</option>
                 </select>
             </div>
-            <div id="gpInfoContainer" style="color: #fff; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 10px; padding-bottom: 4px; flex-wrap: wrap;">
+            <div id="gpInfoContainer" style="color: #fff; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 6px; padding-bottom: 4px;">
                 📍 GP Atual: <span id="currentGpName" style="color: #facc15;">Carregando...</span>
-                <span id="sessionDetailsBadge" style="background: #0f172a; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #f87171; border: 1px solid #334155;">Status: Pronto</span>
-                <span id="lapCounterBadge" style="background: #0f172a; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #38bdf8; border: 1px solid #334155; display:none;">Volta: --</span>
             </div>
         </div>
     </div>
@@ -171,130 +149,59 @@ f1_dashboard_html = """
     <div id="mainContainer">Carregando dados da Fórmula 1...</div>
 
     <script>
-        let currentView = 'standings';
-        let liveInterval = null;
+        let currentView = 'live';
 
         function switchView() {
             currentView = document.getElementById('viewSelect').value;
-            if (liveInterval) {
-                clearInterval(liveInterval);
-                liveInterval = null;
-            }
             loadData();
         }
 
         async function loadData() {
             let container = document.getElementById('mainContainer');
-            if (currentView === 'standings') {
-                container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">Carregando Classificação do Campeonato e Grid...</div>`;
-                fetchStandings();
-            } else if (currentView === 'live') {
+            if (currentView === 'live') {
                 container.innerHTML = `
-                    <div id="statusBanner" class="waiting-banner">
-                        ⏳ SESSÃO NÃO INICIADA OU AGUARDANDO SINAL AO VIVO...<br>
-                        <span style="font-size:12px; color:#94a3b8; font-weight:normal;">O painel começará a atualizar automaticamente assim que a sessão iniciar na pista.</span>
-                    </div>
                     <div class="card">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                             <span style="font-size: 14px; font-weight: bold; color: #f87171;">
-                                <span class="blinking-dot"></span> TELEMETRIA & CIRCUITO EM TEMPO REAL
+                                <span class="blinking-dot"></span> SESSÃO AO VIVO - TELEMETRIA DE POSIÇÃO
                             </span>
-                            <span id="sessionTitle" style="font-size: 12px; color: #94a3b8;">Aguardando transmissão...</span>
+                            <span id="sessionTitle" style="font-size: 12px; color: #94a3b8;">Conectando à OpenF1 API...</span>
                         </div>
                         <div class="circuit-canvas-container">
                             <canvas id="trackCanvas" width="700" height="360" style="background: #090d16; border-radius: 6px;"></canvas>
                         </div>
                     </div>
                     <div class="card">
-                        <div style="font-weight: bold; color: #f87171; margin-bottom: 6px; font-size: 13px;">🏎️ Grid, Intervalos & Pneus em Tempo Real</div>
-                        <div id="liveGridContainer">Aguardando início do evento ao vivo...</div>
+                        <div style="font-weight: bold; color: #f87171; margin-bottom: 6px; font-size: 13px;">🏎️ Grid & Posições Atuais</div>
+                        <div id="liveGridContainer">Carregando posições...</div>
                     </div>
                 `;
                 fetchLiveTelemetry();
-                liveInterval = setInterval(() => {
-                    if (currentView === 'live') fetchLiveTelemetry();
-                }, 5000);
             } else if (currentView === 'calendar') {
-                container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">Carregando calendário de GPs...</div>`;
+                container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">Carregando calendário de GPs (Jolpica F1)...</div>`;
                 fetchCalendar();
+            } else if (currentView === 'standings') {
+                container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">Carregando classificação do campeonato...</div>`;
+                fetchStandings();
             }
         }
-
-        function getTeamShield(teamName) {
-            if (!teamName) return '🏎️';
-            let t = teamName.toLowerCase();
-            if (t.includes('red bull')) return '🐂 RBR';
-            if (t.includes('ferrari')) return '🐎 Ferrari';
-            if (t.includes('mercedes')) return '⭐ Mercedes';
-            if (t.includes('mclaren')) return '🧡 McLaren';
-            if (t.includes('aston martin')) return '🟩 Aston Martin';
-            if (t.includes('alpine')) return '🔵 Alpine';
-            if (t.includes('williams')) return '💙 Williams';
-            if (t.includes('rb') || t.includes('visa')) return '🐂 VCARB';
-            if (t.includes('sauber') || t.includes('kick')) return '💚 Sauber';
-            if (t.includes('haas')) return '🔲 Haas';
-            return '🛡️ ' + teamName;
-        }
-
-        function getTyreBadge(compound) {
-            if (!compound) return '<span style="color:#94a3b8">-</span>';
-            let c = compound.toUpperCase();
-            if (c.includes('SOFT') || c === 'SOFT') return '<span style="color:#ef4444; font-weight:bold;">🔴 SOFT</span>';
-            if (c.includes('MEDIUM') || c === 'MEDIUM') return '<span style="color:#eab308; font-weight:bold;">🟡 MED</span>';
-            if (c.includes('HARD') || c === 'HARD') return '<span style="color:#f8fafc; font-weight:bold;">⚪ HARD</span>';
-            if (c.includes('INTER') || c === 'INTERMEDIATE') return '<span style="color:#22c55e; font-weight:bold;">🟢 INTER</span>';
-            if (c.includes('WET') || c === 'WET') return '<span style="color:#3b82f6; font-weight:bold;">🔵 WET</span>';
-            return `<span style="color:#facc15;">${c}</span>`;
-        }
-
-        const safeFetch = async (url) => {
-            try { let r = await fetch(url); return await r.json(); } catch(e) { return []; }
-        };
 
         async function fetchLiveTelemetry() {
-            let sessData = await safeFetch('https://api.openf1.org/v1/sessions?session_key=latest');
-            let sessionKey = 'latest';
-            let sessionName = 'Sessão AO VIVO';
-            if (sessData.length > 0) {
-                let s = sessData[0];
-                sessionKey = s.session_key;
-                sessionName = s.session_name || "Sessão F1";
-                document.getElementById('currentGpName').innerText = `${s.location || s.circuit_short_name || 'GP'} (${s.year})`;
-                document.getElementById('sessionDetailsBadge').innerText = `Sessão: ${sessionName}`;
-                if(document.getElementById('sessionTitle')) {
-                    document.getElementById('sessionTitle').innerText = `${s.circuit_short_name || 'Circuito'} - ${sessionName}`;
+            try {
+                let sessRes = await fetch('https://api.openf1.org/v1/sessions?session_key=latest');
+                let sessData = await sessRes.json();
+                
+                let sessionKey = 'latest';
+                if (sessData.length > 0) {
+                    let s = sessData[0];
+                    document.getElementById('currentGpName').innerText = (s.session_name || "Sessão F1") + " (" + s.year + ")";
+                    document.getElementById('sessionTitle').innerText = s.circuit_short_name || s.location || "Circuito F1";
+                    sessionKey = s.session_key;
                 }
-            }
 
-            let [driversData, posData, intervalsData, stintsData, pitData, lapsData, locData] = await Promise.all([
-                safeFetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/intervals?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/stints?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/pit?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/laps?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`)
-            ]);
-
-            // Se não houver dados ao vivo no momento (ex: antes da largada), usa sessão de referência para exibir o grid base
-            let isSimulation = false;
-            if (!posData || posData.length === 0 || !locData || locData.length === 0) {
-                isSimulation = true;
-                sessionKey = 9480; 
-                driversData = await safeFetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`);
-                posData = await safeFetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`);
-                intervalsData = await safeFetch(`https://api.openf1.org/v1/intervals?session_key=${sessionKey}`);
-                stintsData = await safeFetch(`https://api.openf1.org/v1/stints?session_key=${sessionKey}`);
-                pitData = await safeFetch(`https://api.openf1.org/v1/pit?session_key=${sessionKey}`);
-                lapsData = await safeFetch(`https://api.openf1.org/v1/laps?session_key=${sessionKey}`);
-                locData = await safeFetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`);
-            } else {
-                let banner = document.getElementById('statusBanner');
-                if (banner) banner.style.display = 'none';
-            }
-
-            let driverMap = {};
-            if (Array.isArray(driversData)) {
+                let driversRes = await fetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`);
+                let driversData = await driversRes.json();
+                let driverMap = {};
                 driversData.forEach(d => {
                     driverMap[d.driver_number] = {
                         name: d.broadcast_name || d.full_name,
@@ -302,91 +209,157 @@ f1_dashboard_html = """
                         color: "#" + (d.team_colour || "ff1801")
                     };
                 });
-            }
 
-            let latestPositions = {};
-            if (Array.isArray(posData)) {
-                posData.forEach(p => { latestPositions[p.driver_number] = p.position; });
-            }
-
-            let latestIntervals = {};
-            if (Array.isArray(intervalsData)) {
-                intervalsData.forEach(i => {
-                    latestIntervals[i.driver_number] = {
-                        gap: i.gap_to_leader !== null ? (i.gap_to_leader === 0 ? 'Líder' : `+${i.gap_to_leader}s`) : '-',
-                        interval: i.interval !== null ? `+${i.interval}s` : '-'
-                    };
-                });
-            }
-
-            let latestStints = {};
-            if (Array.isArray(stintsData)) {
-                stintsData.forEach(st => { latestStints[st.driver_number] = st.compound; });
-            }
-
-            let sortedDrivers = Object.keys(latestPositions).sort((a,b) => latestPositions[a] - latestPositions[b]);
-            if (sortedDrivers.length === 0) sortedDrivers = Object.keys(driverMap);
-
-            let gridHtml = `
-                <table class="standings-table">
-                    <thead>
-                        <tr>
-                            <th>Pos</th>
-                            <th>Piloto</th>
-                            <th>Equipe / Escudo</th>
-                            <th>Nº</th>
-                            <th>Gap / Intervalo</th>
-                            <th>Pneus</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            sortedDrivers.forEach((num, index) => {
-                let dInfo = driverMap[num] || { name: `Piloto #${num}`, team: 'Equipe F1', color: '#facc15' };
-                let pos = latestPositions[num] || (index + 1);
-                let gapInfo = latestIntervals[num] || { gap: '-', interval: '-' };
-                let tyre = latestStints[num] || 'SOFT';
-                let tyreBadgeHtml = getTyreBadge(tyre);
-                let teamShield = getTeamShield(dInfo.team);
-
-                gridHtml += `
-                    <tr>
-                        <td><b>P${pos}</b></td>
-                        <td style="border-left: 4px solid ${dInfo.color}; text-align: left; padding-left: 8px;">
-                            ${dInfo.name}
-                        </td>
-                        <td>${teamShield}</td>
-                        <td>#${num}</td>
-                        <td><span style="color:#f87171; font-weight:bold;">${gapInfo.gap}</span></td>
-                        <td>${tyreBadgeHtml}</td>
-                    </tr>
+                let posRes = await fetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`);
+                let posData = await posRes.json();
+                
+                let gridHtml = `
+                    <table class="standings-table">
+                        <thead>
+                            <tr><th>Pos</th><th>Piloto</th><th>Equipe</th><th>Nº</th></tr>
+                        </thead>
+                        <tbody>
                 `;
-            });
-            gridHtml += `</tbody></table>`;
-            let gridContainer = document.getElementById('liveGridContainer');
-            if (gridContainer) gridContainer.innerHTML = gridHtml;
+                let latestPositions = {};
+                posData.forEach(p => { latestPositions[p.driver_number] = p.position; });
+                
+                let sortedDrivers = Object.keys(latestPositions).sort((a,b) => latestPositions[a] - latestPositions[b]);
+                if (sortedDrivers.length === 0) sortedDrivers = Object.keys(driverMap);
+
+                if (sortedDrivers.length === 0) {
+                    gridHtml += `<tr><td colspan="4" style="color: #94a3b8; padding: 15px;">Aguardando dados de grid para esta sessão...</td></tr>`;
+                } else {
+                    sortedDrivers.forEach((num, index) => {
+                        let dInfo = driverMap[num] || { name: `Piloto #${num}`, team: 'Equipe F1', color: '#facc15' };
+                        let pos = latestPositions[num] || (index + 1);
+                        gridHtml += `
+                            <tr>
+                                <td><b>P${pos}</b></td>
+                                <td style="border-left: 4px solid ${dInfo.color};">${dInfo.name}</td>
+                                <td>${dInfo.team}</td>
+                                <td>#${num}</td>
+                            </tr>
+                        `;
+                    });
+                }
+                gridHtml += `</tbody></table>`;
+                let gridContainer = document.getElementById('liveGridContainer');
+                if (gridContainer) gridContainer.innerHTML = gridHtml;
+
+                let locRes = await fetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`);
+                let locData = await locRes.json();
+                
+                // Se não houver dados de localização na sessão "latest" (ex: intervalo entre GPs), buscamos uma sessão recente garantida (ex: GP do Bahrein / Monza recente) para exibir o traçado
+                if (locData.length === 0) {
+                    let fallbackRes = await fetch('https://api.openf1.org/v1/location?session_key=9616'); // Exemplo de chave de sessão válida com dados de pista
+                    locData = await fallbackRes.json();
+                }
+
+                let canvas = document.getElementById('trackCanvas');
+                if (canvas) {
+                    let ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    let xCoords = locData.map(l => l.x);
+                    let yCoords = locData.map(l => l.y);
+                    if (xCoords.length > 0) {
+                        let minX = Math.min(...xCoords), maxX = Math.max(...xCoords);
+                        let minY = Math.min(...yCoords), maxY = Math.max(...yCoords);
+
+                        ctx.strokeStyle = '#334155';
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        let first = true;
+                        locData.forEach(l => {
+                            let cx = ((l.x - minX) / (maxX - minX || 1)) * 620 + 40;
+                            let cy = ((l.y - minY) / (maxY - minY || 1)) * 300 + 30;
+                            if (first) { ctx.moveTo(cx, cy); first = false; } else { ctx.lineTo(cx, cy); }
+                        });
+                        ctx.stroke();
+
+                        let latestLocs = {};
+                        locData.forEach(l => { latestLocs[l.driver_number] = l; });
+
+                        Object.keys(latestLocs).forEach(num => {
+                            let l = latestLocs[num];
+                            let dInfo = driverMap[num] || { color: '#facc15' };
+                            let cx = ((l.x - minX) / (maxX - minX || 1)) * 620 + 40;
+                            let cy = ((l.y - minY) / (maxY - minY || 1)) * 300 + 30;
+
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
+                            ctx.fillStyle = dInfo.color;
+                            ctx.fill();
+                            ctx.lineWidth = 1;
+                            ctx.strokeStyle = '#fff';
+                            ctx.stroke();
+
+                            ctx.fillStyle = '#fff';
+                            ctx.font = '9px sans-serif';
+                            ctx.fillText(num, cx + 7, cy + 3);
+                        });
+                    } else {
+                        ctx.fillStyle = '#f87171';
+                        ctx.font = '13px sans-serif';
+                        ctx.fillText("Aguardando telemetria ativa para desenhar o circuito...", 180, 185);
+                    }
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function fetchCalendar() {
+            try {
+                let res = await fetch('https://api.jolpi.ca/ergast/f1/current.json');
+                let data = await res.json();
+                let races = data.MRData.RaceTable.Races;
+                document.getElementById('currentGpName').innerText = "Calendário " + data.MRData.season;
+
+                let html = `
+                    <h3 style="color:#f87171; margin-bottom:8px; font-size:15px;">📅 Calendário da Temporada F1</h3>
+                    <table class="standings-table">
+                        <thead>
+                            <tr><th>Etapa</th><th>Nome do GP</th><th>Circuito</th><th>Data</th></tr>
+                        </thead>
+                        <tbody>
+                `;
+                races.forEach(r => {
+                    html += `
+                        <tr>
+                            <td><b>R${r.round}</b></td>
+                            <td>${r.raceName}</td>
+                            <td>${r.Circuit.circuitName} (${r.Circuit.Location.locality}, ${r.Circuit.Location.country})</td>
+                            <td>${r.date}</td>
+                        </tr>
+                    `;
+                });
+                html += `</tbody></table>`;
+                document.getElementById('mainContainer').innerHTML = html;
+            } catch(e) {
+                document.getElementById('mainContainer').innerHTML = "<div style='text-align:center; color:#94a3b8; padding:20px;'>Erro ao carregar o calendário.</div>";
+            }
         }
 
         async function fetchStandings() {
             try {
-                let resD = await safeFetch('https://api.jolpi.ca/ergast/f1/current/driverStandings.json');
-                let dStandings = resD.MRData?.StandingsTable?.StandingsLists[0]?.DriverStandings || [];
+                let resD = await fetch('https://api.jolpi.ca/ergast/f1/current/driverStandings.json');
+                let dataD = await resD.json();
+                let dStandings = dataD.MRData.StandingsTable.StandingsLists[0].DriverStandings;
 
-                let resC = await safeFetch('https://api.jolpi.ca/ergast/f1/current/constructorStandings.json');
-                let cStandings = resC.MRData?.StandingsTable?.StandingsLists[0]?.ConstructorStandings || [];
+                let resC = await fetch('https://api.jolpi.ca/ergast/f1/current/constructorStandings.json');
+                let dataC = await resC.json();
+                let cStandings = dataC.MRData.StandingsTable.StandingsLists[0].ConstructorStandings;
 
-                document.getElementById('currentGpName').innerText = "Temporada Atual";
-                document.getElementById('sessionDetailsBadge').innerText = "Classificação Geral";
+                document.getElementById('currentGpName').innerText = "Classificação do Campeonato";
 
                 let html = `
-                    <div class="card">
-                        <h3 style="color:#f87171; margin-top:0; margin-bottom:8px; font-size:15px;">🏆 Campeonato de Pilotos</h3>
-                        <table class="standings-table">
-                            <thead>
-                                <tr><th>Pos</th><th>Piloto</th><th>Equipe</th><th>Pontos</th><th>Vitórias</th></tr>
-                            </thead>
-                            <tbody>
+                    <h3 style="color:#f87171; margin-bottom:8px; font-size:15px;">🏆 Campeonato de Pilotos</h3>
+                    <table class="standings-table">
+                        <thead>
+                            <tr><th>Pos</th><th>Piloto</th><th>Equipe</th><th>Pontos</th><th>Vitórias</th></tr>
+                        </thead>
+                        <tbody>
                 `;
                 dStandings.forEach(ds => {
                     let team = ds.Constructors[0] ? ds.Constructors[0].name : '';
@@ -400,16 +373,15 @@ f1_dashboard_html = """
                         </tr>
                     `;
                 });
-                html += `</tbody></table></div>`;
+                html += `</tbody></table>`;
 
                 html += `
-                    <div class="card">
-                        <h3 style="color:#f87171; margin-top:0; margin-bottom:8px; font-size:15px;">🛠️ Campeonato de Construtores</h3>
-                        <table class="standings-table">
-                            <thead>
-                                <tr><th>Pos</th><th>Construtor</th><th>Nacionalidade</th><th>Pontos</th><th>Vitórias</th></tr>
-                            </thead>
-                            <tbody>
+                    <h3 style="color:#f87171; margin-top:20px; margin-bottom:8px; font-size:15px;">🛠️ Campeonato de Construtores</h3>
+                    <table class="standings-table">
+                        <thead>
+                            <tr><th>Pos</th><th>Construtor</th><th>Nacionalidade</th><th>Pontos</th><th>Vitórias</th></tr>
+                        </thead>
+                        <tbody>
                 `;
                 cStandings.forEach(cs => {
                     html += `
@@ -422,48 +394,18 @@ f1_dashboard_html = """
                         </tr>
                     `;
                 });
-                html += `</tbody></table></div>`;
+                html += `</tbody></table>`;
 
                 document.getElementById('mainContainer').innerHTML = html;
             } catch(e) {
-                document.getElementById('mainContainer').innerHTML = "<div style='text-align:center; color:#94a3b8; padding:20px;'>Erro ao carregar a classificação do campeonato.</div>";
-            }
-        }
-
-        async function fetchCalendar() {
-            try {
-                let res = await safeFetch('https://api.jolpi.ca/ergast/f1/current.json');
-                let races = res.MRData?.RaceTable?.Races || [];
-                document.getElementById('currentGpName').innerText = "Calendário " + (res.MRData?.season || '');
-                document.getElementById('sessionDetailsBadge').innerText = "Temporada Regular";
-
-                let html = `
-                    <div class="card">
-                        <h3 style="color:#f87171; margin-top:0; margin-bottom:8px; font-size:15px;">📅 Calendário da Temporada F1</h3>
-                        <table class="standings-table">
-                            <thead>
-                                <tr><th>Etapa</th><th>Nome do GP</th><th>Circuito</th><th>Data</th></tr>
-                            </thead>
-                            <tbody>
-                `;
-                races.forEach(r => {
-                    html += `
-                        <tr>
-                            <td><b>R${r.round}</b></td>
-                            <td>${r.raceName}</td>
-                            <td>${r.Circuit.circuitName} (${r.Circuit.Location.locality}, ${r.Circuit.Location.country})</td>
-                            <td>${r.date}</td>
-                        </tr>
-                    `;
-                });
-                html += `</tbody></table></div>`;
-                document.getElementById('mainContainer').innerHTML = html;
-            } catch(e) {
-                document.getElementById('mainContainer').innerHTML = "<div style='text-align:center; color:#94a3b8; padding:20px;'>Erro ao carregar o calendário.</div>";
+                document.getElementById('mainContainer').innerHTML = "<div style='text-align:center; color:#94a3b8; padding:20px;'>Erro ao carregar a classificação.</div>";
             }
         }
 
         loadData();
+        setInterval(() => {
+            if (currentView === 'live') fetchLiveTelemetry();
+        }, 5000);
     </script>
 </body>
 </html>
