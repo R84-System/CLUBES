@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import pandas as pd
+from datetime import datetime
 
 st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
 
@@ -167,7 +168,7 @@ st.markdown(r"""
 # Tradutor de Nomes de Sessão da API para Português Amigável
 def translate_session_name(session_name):
     if not session_name:
-        return "Sessão ao Vivo"
+        return "Sessão Recente"
     mapping = {
         "Practice 1": "Treino Livre 1 (TL1)",
         "Practice 2": "Treino Livre 2 (TL2)",
@@ -212,19 +213,33 @@ menu = st.sidebar.radio(
 )
 
 if menu == "🏎️ Telemetria ao Vivo":
-    @st.cache_data(ttl=15)
+    @st.cache_data(ttl=60)
     def get_latest_session():
         try:
+            # 1. Tenta buscar a sessão atual/mais recente via 'latest'
             res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest", timeout=10)
             if res.status_code == 200:
-                return res.json()
+                data = res.json()
+                if isinstance(data, list) and len(data) > 0:
+                    return data
+                elif isinstance(data, dict) and data:
+                    return [data]
+            
+            # 2. Fallback: se não houver sessão ao vivo agora, pega a última sessão do ano atual
+            current_year = datetime.now().year
+            res_year = requests.get(f"https://api.openf1.org/v1/sessions?year={current_year}", timeout=10)
+            if res_year.status_code == 200:
+                year_data = res_year.json()
+                if isinstance(year_data, list) and len(year_data) > 0:
+                    return [year_data[-1]] # Retorna a última sessão registrada no ano
+            
             return []
         except Exception:
             return []
 
     data = get_latest_session()
 
-    # Validação segura e robusta para tratar tanto list quanto dict ou vazio
+    # Validação segura e robusta
     latest_session = None
     if isinstance(data, list) and len(data) > 0:
         latest_session = data[0]
@@ -241,19 +256,19 @@ if menu == "🏎️ Telemetria ao Vivo":
         st.sidebar.success(f"Sessão: {session_title}\n\n📍 {circuit_name} ({year})")
     else:
         session_key = None
-        session_title = "Aguardando Sessão"
+        session_title = "Nenhuma Sessão Disponível"
         circuit_name = "Circuito F1"
         year = ""
         raw_session_name = ""
-        st.sidebar.warning("Nenhuma sessão ao vivo encontrada no momento.")
+        st.sidebar.warning("Nenhuma sessão encontrada no momento.")
 
-    # Banner Superior Dinâmico indicando o status atual ao vivo
+    # Banner Superior Dinâmico
     banner_html = f"""
     <div style="display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #121824 0%, #1a2332 100%); border: 1px solid #1f2a3a; border-left: 5px solid #e10600; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
         <div style="display: flex; align-items: center; gap: 12px;">
             <span class="live-dot"></span>
             <div>
-                <span style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; display: block;">Sessão Ativa na Pista</span>
+                <span style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; display: block;">Status da Sessão</span>
                 <span style="font-size: 1.1rem; font-weight: 900; color: #ffffff; letter-spacing: 0.5px;">{session_title}</span>
             </div>
         </div>
