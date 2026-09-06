@@ -1,7 +1,7 @@
 import streamlit as str_lit
 
 str_lit.set_page_config(
-    page_title="Painel F1 Pro - Tempo Real & Alertas", page_icon="🏎️", layout="wide"
+    page_title="Painel F1 Pro - Tempo Real & Pits", page_icon="🏎️", layout="wide"
 )
 
 str_lit.markdown(
@@ -144,6 +144,26 @@ f1_dashboard_html = """
             font-size: 13px;
             display: none;
         }
+        .badge-pit {
+            background-color: #eab308;
+            color: #000;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-left: 5px;
+            display: inline-block;
+        }
+        .badge-out {
+            background-color: #ef4444;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-left: 5px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
@@ -152,7 +172,6 @@ f1_dashboard_html = """
             🏎️ F1 Pro - Central de Classificação & Tempo Real
         </h3>
         
-        <!-- Banner de Alertas Dinâmicos (Safety Car, Bandeiras, etc) -->
         <div id="raceControlAlert" class="alert-banner"></div>
 
         <div class="controls">
@@ -211,7 +230,7 @@ f1_dashboard_html = """
                         </div>
                     </div>
                     <div class="card">
-                        <div style="font-weight: bold; color: #f87171; margin-bottom: 6px; font-size: 13px;">🏎️ Grid, Gaps, Pneus, Voltas & Volta Mais Rápida (⏱️)</div>
+                        <div style="font-weight: bold; color: #f87171; margin-bottom: 6px; font-size: 13px;">🏎️ Grid, Tempos de Volta, Pits, Pneus & Voltas</div>
                         <div id="liveGridContainer">Aguardando início do evento ao vivo...</div>
                     </div>
                 `;
@@ -250,6 +269,13 @@ f1_dashboard_html = """
             if (c.includes('INTER') || c === 'INTERMEDIATE') return '<span style="color:#22c55e; font-weight:bold;">🟢 INTER</span>';
             if (c.includes('WET') || c === 'WET') return '<span style="color:#3b82f6; font-weight:bold;">🔵 WET</span>';
             return `<span style="color:#facc15;">${c}</span>`;
+        }
+
+        function formatLapTime(seconds) {
+            if (!seconds || isNaN(seconds)) return '-';
+            let mins = Math.floor(seconds / 60);
+            let secs = (seconds % 60).toFixed(3);
+            return mins > 0 ? `${mins}:${secs < 10 ? '0' : ''}${secs}` : `${secs}s`;
         }
 
         function classifySessionName(name) {
@@ -294,14 +320,15 @@ f1_dashboard_html = """
                 }
             }
 
-            let [driversData, posData, intervalsData, stintsData, lapsData, locData, raceControlData] = await Promise.all([
+            let [driversData, posData, intervalsData, stintsData, lapsData, locData, raceControlData, pitsData] = await Promise.all([
                 safeFetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`),
                 safeFetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`),
                 safeFetch(`https://api.openf1.org/v1/intervals?session_key=${sessionKey}`),
                 safeFetch(`https://api.openf1.org/v1/stints?session_key=${sessionKey}`),
                 safeFetch(`https://api.openf1.org/v1/laps?session_key=${sessionKey}`),
                 safeFetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/race_control?session_key=${sessionKey}`)
+                safeFetch(`https://api.openf1.org/v1/race_control?session_key=${sessionKey}`),
+                safeFetch(`https://api.openf1.org/v1/pits?session_key=${sessionKey}`)
             ]);
 
             let isSimulation = false;
@@ -315,12 +342,13 @@ f1_dashboard_html = """
                 lapsData = await safeFetch(`https://api.openf1.org/v1/laps?session_key=${sessionKey}`);
                 locData = await safeFetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`);
                 raceControlData = await safeFetch(`https://api.openf1.org/v1/race_control?session_key=${sessionKey}`);
+                pitsData = await safeFetch(`https://api.openf1.org/v1/pits?session_key=${sessionKey}`);
             } else {
                 let banner = document.getElementById('statusBanner');
                 if (banner) banner.style.display = 'none';
             }
 
-            // Processamento de Alertas de Direção de Prova (Safety Car, Bandeiras)
+            // Alertas de Direção de Prova
             let alertBox = document.getElementById('raceControlAlert');
             if (Array.isArray(raceControlData) && raceControlData.length > 0) {
                 let latestRC = raceControlData[raceControlData.length - 1];
@@ -393,9 +421,10 @@ f1_dashboard_html = """
                 stintsData.forEach(st => { latestStints[st.driver_number] = st.compound; });
             }
 
-            // Descobrir a Volta Mais Rápida (Fastest Lap) e Volta Atual
+            // Identificar Pilotos no Box (PIT) e Voltas
             let maxLapNum = 0;
             let driverCurrentLap = {};
+            let driverLastLapTime = {};
             let fastestLapDriverNum = null;
             let minLapTime = Infinity;
 
@@ -405,12 +434,27 @@ f1_dashboard_html = """
                     if (!driverCurrentLap[l.driver_number] || l.lap_number > driverCurrentLap[l.driver_number]) {
                         driverCurrentLap[l.driver_number] = l.lap_number;
                     }
+                    if (!driverLastLapTime[l.driver_number] || l.lap_number >= driverLastLapTime[l.driver_number].lap) {
+                        driverLastLapTime[l.driver_number] = { lap: l.lap_number, duration: l.lap_duration };
+                    }
                     if (l.lap_duration && l.lap_duration < minLapTime) {
                         minLapTime = l.lap_duration;
                         fastestLapDriverNum = l.driver_number;
                     }
                 });
             }
+
+            // Verificar pit lane atual
+            let inPitSet = {};
+            if (Array.isArray(pitsData)) {
+                pitsData.forEach(p => {
+                    // Se estiver na volta atual e sem duração registrada, está parado no box
+                    if (p.lap_number === driverCurrentLap[p.driver_number] && (p.pit_duration === null || p.pit_duration === undefined)) {
+                        inPitSet[p.driver_number] = true;
+                    }
+                });
+            }
+
             let totalLapsEst = maxLapNum > 0 ? Math.max(maxLapNum, 57) : 57;
             let currentLapBadge = document.getElementById('lapCounterBadge');
             if (currentLapBadge) {
@@ -435,6 +479,7 @@ f1_dashboard_html = """
                             <th>Piloto</th>
                             <th>Equipe / Escudo</th>
                             <th>Nº</th>
+                            <th>Tempo da Volta</th>
                             <th>Gap p/ Líder</th>
                             <th>Intervalo</th>
                             <th>Pneus</th>
@@ -453,19 +498,29 @@ f1_dashboard_html = """
                 let teamShield = getTeamShield(dInfo.team);
                 let dLap = driverCurrentLap[num] || maxLapNum || '-';
                 
-                // Verifica se este piloto tem a volta mais rápida
+                let lapTimeData = driverLastLapTime[num];
+                let formattedTime = lapTimeData ? formatLapTime(lapTimeData.duration) : '-';
+
+                // Badges dinâmicos solicitados
                 let isFastest = (parseInt(num) === parseInt(fastestLapDriverNum));
-                let fastestBadge = isFastest ? ' <span title="Volta Mais Rápida da Sessão" style="cursor:help; font-size:14px;">⏱️</span>' : '';
-                let winnerBadge = (isRaceFinished && pos === 1) ? ' <span style="font-size:14px;">🏁</span>' : '';
+                let fastestBadge = isFastest ? ' <span title="Volta Mais Rápida" style="cursor:help;">⏱️</span>' : '';
+                let winnerBadge = (isRaceFinished && pos === 1) ? ' <span>🏁</span>' : '';
+                
+                let pitBadge = inPitSet[num] ? ' <span class="badge-pit">PIT</span>' : '';
+                
+                // Detecção de abandono (OUT LAP) se estagnado muitas voltas atrás do líder ou sem atualização recente
+                let isAbandoned = (maxLapNum > 5 && dLap !== '-' && (maxLapNum - dLap > 5));
+                let outBadge = isAbandoned ? ' <span class="badge-out">OUT LAP</span>' : '';
 
                 gridHtml += `
                     <tr>
                         <td><b>P${pos}</b></td>
                         <td style="border-left: 4px solid ${dInfo.color}; text-align: left; padding-left: 8px;">
-                            ${dInfo.name} ${fastestBadge} ${winnerBadge}
+                            ${dInfo.name} ${fastestBadge} ${winnerBadge} ${pitBadge} ${outBadge}
                         </td>
                         <td>${teamShield}</td>
                         <td>#${num}</td>
+                        <td><span style="color:#facc15; font-weight:bold;">${formattedTime}</span></td>
                         <td><span style="color:#f87171; font-weight:bold;">${gapInfo.gap}</span></td>
                         <td><span style="color:#38bdf8;">${gapInfo.interval}</span></td>
                         <td>${tyreBadgeHtml}</td>
