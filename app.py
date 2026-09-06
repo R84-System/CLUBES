@@ -281,7 +281,7 @@ if menu == "🏎️ Telemetria ao Vivo":
     with col1:
         st.subheader(f"Circuito em Tempo Real ({circuit_name})")
         
-        # Script JS integrado com traçado limpo, nítido e bem definido
+        # Script JS corrigido para isolar o traçado limpo de um único piloto (evitando cruzamentos e manchas)
         track_html_template = """
         <div class="track-container" style="position:relative; width:100%; height:520px; background:#0b0e14; border-radius:12px; border:1px solid #1f2a3a; box-shadow: 0 4px 15px rgba(0,0,0,0.4); overflow:hidden;">
             <canvas id="f1Canvas" style="width:100%; height:100%; display:block;"></canvas>
@@ -314,22 +314,35 @@ if menu == "🏎️ Telemetria ao Vivo":
                         const data = await res.json();
                         
                         if (data && data.length > 0) {
-                            let pts = [];
+                            let driverTracks = {};
                             let latestCars = {};
                             
                             data.forEach(item => {
-                                if (item.x !== undefined && item.y !== undefined) {
-                                    pts.push({x: item.x, y: item.y});
+                                if (item.x !== undefined && item.y !== undefined && item.driver_number) {
+                                    if (!driverTracks[item.driver_number]) {
+                                        driverTracks[item.driver_number] = [];
+                                    }
+                                    driverTracks[item.driver_number].push({x: item.x, y: item.y});
                                     latestCars[item.driver_number] = {x: item.x, y: item.y};
                                 }
                             });
                             
-                            if (pts.length > 50) {
-                                trackPoints = [];
-                                for(let i=0; i<pts.length; i+=6) {
-                                    trackPoints.push(pts[i]);
+                            // Encontra o piloto com mais pontos para isolar o traçado limpo da pista
+                            let bestDriver = Object.keys(driverTracks)[0];
+                            let maxPts = 0;
+                            for (let d in driverTracks) {
+                                if (driverTracks[d].length > maxPts) {
+                                    maxPts = driverTracks[d].length;
+                                    bestDriver = d;
                                 }
                             }
+                            
+                            if (bestDriver && driverTracks[bestDriver]) {
+                                let rawPts = driverTracks[bestDriver];
+                                // Pega uma volta completa recente (últimos 450 pontos)
+                                trackPoints = rawPts.slice(-450);
+                            }
+                            
                             carPositions = latestCars;
                             statusDiv.innerText = "● Circuito Real — Telemetria Ativa";
                         }
@@ -362,7 +375,7 @@ if menu == "🏎️ Telemetria ao Vivo":
                             };
                         }
 
-                        // 1. Borda / Sombra da pista (Asfalto base)
+                        // 1. Asfalto / Borda base da pista
                         ctx.strokeStyle = '#1e293b';
                         ctx.lineWidth = 10;
                         ctx.lineCap = 'round';
@@ -388,14 +401,14 @@ if menu == "🏎️ Telemetria ao Vivo":
                         });
                         ctx.stroke();
 
-                        // 3. Linha central tracejada para dar acabamento estético profissional
+                        // 3. Linha central tracejada para acabamento estético profissional
                         ctx.strokeStyle = '#ffffff';
                         ctx.lineWidth = 1.2;
                         ctx.setLineDash([3, 6]);
                         ctx.stroke();
                         ctx.setLineDash([]);
 
-                        // 4. Posicionamento dos carros na pista
+                        // 4. Posicionamento atual dos carros na pista
                         for (let dNum in carPositions) {
                             let pos = carPositions[dNum];
                             let pt = transform(pos.x, pos.y);
