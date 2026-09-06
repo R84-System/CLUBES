@@ -23,7 +23,6 @@ df_sessions = get_sessions()
 if not df_sessions.empty:
     st.sidebar.header("Configuração da Sessão")
     
-    # Filtros para escolher o ano, tipo de sessão e circuito
     years = sorted(df_sessions['year'].unique(), reverse=True)
     selected_year = st.sidebar.selectbox("Ano", years)
     
@@ -63,20 +62,34 @@ if not df_sessions.empty:
                         df_track = df_loc[df_loc['driver_number'] == sample_driver]
                         df_latest_loc = df_loc.sort_values(by='date').groupby('driver_number').tail(1)
                         
+                        if drv_data:
+                            df_drv = pd.DataFrame(drv_data)
+                            df_latest_loc = pd.merge(df_latest_loc, df_drv[['driver_number', 'name_acronym', 'team_colour']], on='driver_number', how='left')
+                            # Garantir formato de cor hexadecimal para o Plotly
+                            df_latest_loc['team_colour'] = df_latest_loc['team_colour'].apply(lambda c: f"#{c}" if c and not str(c).startswith('#') else (c if c else "FFFFFF"))
+                        else:
+                            df_latest_loc['name_acronym'] = df_latest_loc['driver_number'].astype(str)
+                            df_latest_loc['team_colour'] = "red"
+                        
                         fig = px.scatter(
                             df_track, x='x', y='y',
-                            opacity=0.2,
+                            opacity=0.15,
                             height=550
                         )
+                        
                         fig.add_scatter(
                             x=df_latest_loc['x'],
                             y=df_latest_loc['y'],
                             mode='markers+text',
-                            text=df_latest_loc['driver_number'],
+                            text=df_latest_loc['name_acronym'],
                             textposition="top center",
-                            marker=dict(size=12, color='red'),
+                            marker=dict(
+                                size=12, 
+                                color=df_latest_loc['team_colour'] if 'team_colour' in df_latest_loc.columns else 'red'
+                            ),
                             name='Carros'
                         )
+                        
                         fig.update_layout(
                             xaxis=dict(visible=False),
                             yaxis=dict(visible=False),
@@ -97,7 +110,7 @@ if not df_sessions.empty:
                         
                         if drv_data:
                             df_drv = pd.DataFrame(drv_data)
-                            df_table = pd.merge(df_latest_pos, df_drv[['driver_number', 'name_acronym', 'team_name', 'team_colour']], on='driver_number', how='left')
+                            df_table = pd.merge(df_latest_pos, df_drv[['driver_number', 'name_acronym', 'team_name']], on='driver_number', how='left')
                         else:
                             df_table = df_latest_pos
                             
