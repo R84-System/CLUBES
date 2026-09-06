@@ -14,13 +14,18 @@ except FileNotFoundError:
 st.title("🏎️ F1 Live Dashboard - OpenF1 API")
 
 @st.cache_data(ttl=60)
-data = requests.get("https://api.openf1.org/v1/sessions?session_key=latest").json()
+def get_latest_session():
+    res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest")
+    return res.json()
+
+data = get_latest_session()
+
 if data:
     latest_session = data[0]
     session_key = latest_session["session_key"]
     st.sidebar.success(f"Sessão Conectada: {latest_session.get('circuit_short_name', 'F1')} ({latest_session.get('year', '')})")
 else:
-    session_key = latest_session = None
+    session_key = None
     st.sidebar.warning("Nenhuma sessão ao vivo encontrada no momento.")
 
 col1, col2 = st.columns([2, 1])
@@ -28,7 +33,6 @@ col1, col2 = st.columns([2, 1])
 with col1:
     st.subheader("Circuito em Tempo Real")
     
-    # Lê o tracker.js e injeta no componente web
     try:
         with open("static/tracker.js", "r", encoding="utf-8") as f:
             js_code = f.read()
