@@ -4,7 +4,7 @@ import pandas as pd
 
 st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
 
-# Estilos CSS Avançados para Layout Profissional (Dark Mode & Cards)
+# Estilos CSS Avançados para Layout Profissional (F1 TV Style & Cards)
 st.markdown("""
 <style>
     .stApp {
@@ -49,6 +49,78 @@ st.markdown("""
         color: #94a3b8;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+    }
+
+    /* Estilo F1 TV Timing Tower Cards */
+    .timing-container {
+        max-height: 520px;
+        overflow-y: auto;
+        padding-right: 5px;
+    }
+    .timing-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #131822;
+        border: 1px solid #1f2a3a;
+        border-left: 5px solid #2563eb;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-bottom: 6px;
+        font-family: sans-serif;
+    }
+    .timing-pos-1 { border-left-color: #e10600; background: linear-gradient(90deg, #2a1215 0%, #131822 100%); }
+    .timing-pos-2, .timing-pos-3 { border-left-color: #ffd700; }
+    
+    .timing-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .timing-pos {
+        background: #1f2a3a;
+        color: #ffffff;
+        font-weight: 900;
+        font-size: 0.9rem;
+        padding: 3px 8px;
+        border-radius: 4px;
+        min-width: 28px;
+        text-align: center;
+    }
+    .timing-driver {
+        font-weight: 800;
+        color: #ffffff;
+        font-size: 1rem;
+        letter-spacing: 0.5px;
+    }
+    .timing-team {
+        color: #94a3b8;
+        font-size: 0.75rem;
+    }
+    .tyre-badge {
+        font-size: 0.7rem;
+        font-weight: 800;
+        padding: 2px 6px;
+        border-radius: 3px;
+        text-align: center;
+        min-width: 18px;
+    }
+    .tyre-soft { background: #da291c; color: #ffffff; }
+    .tyre-medium { background: #ffd100; color: #000000; }
+    .tyre-hard { background: #ffffff; color: #000000; }
+    .tyre-unknown { background: #475569; color: #ffffff; }
+
+    .timing-right {
+        text-align: right;
+    }
+    .timing-time {
+        font-weight: 700;
+        color: #f1f5f9;
+        font-size: 0.9rem;
+    }
+    .timing-gap {
+        font-size: 0.75rem;
+        color: #94a3b8;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -187,13 +259,26 @@ if menu == "🏎️ Telemetria ao Vivo":
                         acronym = driver.get("name_acronym", str(d_num))
                         team = driver.get("team_name", "Desconhecida")
                         position = pos_map.get(d_num, 99)
+                        compound = tires_map.get(d_num, "N/A")
+                        
+                        # Identifica letra do pneu estilo TV (S, M, H)
+                        comp_upper = compound.upper()
+                        if "SOFT" in comp_upper:
+                            tyre_letter, tyre_class = "S", "tyre-soft"
+                        elif "MEDIUM" in comp_upper:
+                            tyre_letter, tyre_class = "M", "tyre-medium"
+                        elif "HARD" in comp_upper:
+                            tyre_letter, tyre_class = "H", "tyre-hard"
+                        else:
+                            tyre_letter, tyre_class = "-", "tyre-unknown"
                         
                         table_data.append({
                             "Pos": position,
                             "Nº": d_num,
                             "Piloto": acronym,
                             "Equipe": team,
-                            "Pneu": tires_map.get(d_num, "N/A"),
+                            "Pneu": tyre_letter,
+                            "TyreClass": tyre_class,
                             "Intervalo": interval_map.get(d_num, "LEADER" if position == 1 else "-"),
                             "Gap": gap_map.get(d_num, "LEADER" if position == 1 else "-"),
                             "Melhor Volta": best_lap_map.get(d_num, "-")
@@ -202,7 +287,37 @@ if menu == "🏎️ Telemetria ao Vivo":
                     df_display = pd.DataFrame(table_data)
                     df_display = df_display.sort_values(by="Pos").reset_index(drop=True)
                     
-                    st.dataframe(df_display, hide_index=True, use_container_width=True, height=500)
+                    # Renderização em blocos estilo F1 TV (Timing Tower)
+                    timing_html = '<div class="timing-container">'
+                    for _, row in df_display.iterrows():
+                        pos = row["Pos"]
+                        pos_class = "timing-pos-1" if pos == 1 else ("timing-pos-2" if pos == 2 or pos == 3 else "")
+                        pilot = row["Piloto"]
+                        team = row["Equipe"]
+                        tyre = row["Pneu"]
+                        t_class = row["TyreClass"]
+                        lap_time = row["Melhor Volta"]
+                        gap = row["Gap"]
+                        
+                        timing_html += f"""
+                        <div class="timing-row {pos_class}">
+                            <div class="timing-left">
+                                <div class="timing-pos">{pos}</div>
+                                <div class="tyre-badge {t_class}">{tyre}</div>
+                                <div>
+                                    <div class="timing-driver">{pilot}</div>
+                                    <div class="timing-team">{team}</div>
+                                </div>
+                            </div>
+                            <div class="timing-right">
+                                <div class="timing-time">{lap_time}</div>
+                                <div class="timing-gap">{gap}</div>
+                            </div>
+                        </div>
+                        """
+                    timing_html += '</div>'
+                    
+                    st.markdown(timing_html, unsafe_allow_html=True)
                 else:
                     st.info("Aguardando dados dos pilotos...")
             except Exception as e:
