@@ -124,6 +124,16 @@ f1_dashboard_html = """
             align-items: center;
             overflow: hidden;
         }
+        .badge-pit {
+            background-color: #eab308;
+            color: #000;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-left: 5px;
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
@@ -140,8 +150,10 @@ f1_dashboard_html = """
                     <option value="standings">🏆 Classificação (Pilotos & Construtores)</option>
                 </select>
             </div>
-            <div id="gpInfoContainer" style="color: #fff; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 6px; padding-bottom: 4px;">
+            <div id="gpInfoContainer" style="color: #fff; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 10px; padding-bottom: 4px; flex-wrap: wrap;">
                 📍 GP Atual: <span id="currentGpName" style="color: #facc15;">Carregando...</span>
+                <span id="sessionDetailsBadge" style="background: #0f172a; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #f87171; border: 1px solid #334155;">Sessão: --</span>
+                <span id="lapCounterBadge" style="background: #0f172a; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #38bdf8; border: 1px solid #334155; display:none;">Volta: --</span>
             </div>
         </div>
     </div>
@@ -163,7 +175,7 @@ f1_dashboard_html = """
                     <div class="card">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                             <span style="font-size: 14px; font-weight: bold; color: #f87171;">
-                                <span class="blinking-dot"></span> SESSÃO AO VIVO - TELEMETRIA DE POSIÇÃO
+                                <span class="blinking-dot"></span> SESSÃO AO VIVO - TELEMETRIA & CIRCUITO
                             </span>
                             <span id="sessionTitle" style="font-size: 12px; color: #94a3b8;">Conectando à OpenF1 API...</span>
                         </div>
@@ -172,8 +184,8 @@ f1_dashboard_html = """
                         </div>
                     </div>
                     <div class="card">
-                        <div style="font-weight: bold; color: #f87171; margin-bottom: 6px; font-size: 13px;">🏎️ Grid & Posições Atuais</div>
-                        <div id="liveGridContainer">Carregando posições...</div>
+                        <div style="font-weight: bold; color: #f87171; margin-bottom: 6px; font-size: 13px;">🏎️ Grid, Intervalos & Pneus em Tempo Real</div>
+                        <div id="liveGridContainer">Carregando posições e telemetria...</div>
                     </div>
                 `;
                 fetchLiveTelemetry();
@@ -186,21 +198,69 @@ f1_dashboard_html = """
             }
         }
 
+        function getTeamShield(teamName) {
+            if (!teamName) return '🏎️';
+            let t = teamName.toLowerCase();
+            if (t.includes('red bull')) return '🐂 RBR';
+            if (t.includes('ferrari')) return '🐎 Ferrari';
+            if (t.includes('mercedes')) return '⭐ Mercedes';
+            if (t.includes('mclaren')) return '🧡 McLaren';
+            if (t.includes('aston martin')) return '🟩 Aston Martin';
+            if (t.includes('alpine')) return '🔵 Alpine';
+            if (t.includes('williams')) return '💙 Williams';
+            if (t.includes('rb') || t.includes('visa')) return '🐂 VCARB';
+            if (t.includes('sauber') || t.includes('kick')) return '💚 Sauber';
+            if (t.includes('haas')) return '🔲 Haas';
+            return '🛡️ ' + teamName;
+        }
+
+        function getTyreBadge(compound) {
+            if (!compound) return '<span style="color:#94a3b8">-</span>';
+            let c = compound.toUpperCase();
+            if (c.includes('SOFT') || c === 'SOFT') return '<span style="color:#ef4444; font-weight:bold;">🔴 SOFT</span>';
+            if (c.includes('MEDIUM') || c === 'MEDIUM') return '<span style="color:#eab308; font-weight:bold;">🟡 MED</span>';
+            if (c.includes('HARD') || c === 'HARD') return '<span style="color:#f8fafc; font-weight:bold;">⚪ HARD</span>';
+            if (c.includes('INTER') || c === 'INTERMEDIATE') return '<span style="color:#22c55e; font-weight:bold;">🟢 INTER</span>';
+            if (c.includes('WET') || c === 'WET') return '<span style="color:#3b82f6; font-weight:bold;">🔵 WET</span>';
+            return `<span style="color:#facc15;">${c}</span>`;
+        }
+
         async function fetchLiveTelemetry() {
             try {
                 let sessRes = await fetch('https://api.openf1.org/v1/sessions?session_key=latest');
                 let sessData = await sessRes.json();
                 
                 let sessionKey = 'latest';
+                let sessionName = 'Sessão AO VIVO';
+                let sessionType = 'Treino/Corrida';
                 if (sessData.length > 0) {
                     let s = sessData[0];
-                    document.getElementById('currentGpName').innerText = (s.session_name || "Sessão F1") + " (" + s.year + ")";
-                    document.getElementById('sessionTitle').innerText = s.circuit_short_name || s.location || "Circuito F1";
                     sessionKey = s.session_key;
+                    sessionName = s.session_name || "Sessão F1";
+                    sessionType = s.session_type || s.session_name || "F1";
+                    document.getElementById('currentGpName').innerText = `${s.location || s.circuit_short_name || 'GP'} (${s.year})`;
+                    document.getElementById('sessionDetailsBadge').innerText = `Sessão: ${sessionName}`;
+                    document.getElementById('sessionTitle').innerText = `${s.circuit_short_name || 'Circuito'} - ${sessionName}`;
                 }
 
-                let driversRes = await fetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`);
+                let [driversRes, posRes, intervalsRes, stintsRes, pitRes, lapsRes, locRes] = await Promise.all([
+                    fetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`),
+                    fetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`),
+                    fetch(`https://api.openf1.org/v1/intervals?session_key=${sessionKey}`),
+                    fetch(`https://api.openf1.org/v1/stints?session_key=${sessionKey}`),
+                    fetch(`https://api.openf1.org/v1/pit?session_key=${sessionKey}`),
+                    fetch(`https://api.openf1.org/v1/laps?session_key=${sessionKey}`),
+                    fetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`)
+                ]);
+
                 let driversData = await driversRes.json();
+                let posData = await posRes.json();
+                let intervalsData = await intervalsRes.json();
+                let stintsData = await stintsRes.json();
+                let pitData = await pitRes.json();
+                let lapsData = await lapsRes.json();
+                let locData = await locRes.json();
+
                 let driverMap = {};
                 driversData.forEach(d => {
                     driverMap[d.driver_number] = {
@@ -210,34 +270,100 @@ f1_dashboard_html = """
                     };
                 });
 
-                let posRes = await fetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`);
-                let posData = await posRes.json();
-                
-                let gridHtml = `
-                    <table class="standings-table">
-                        <thead>
-                            <tr><th>Pos</th><th>Piloto</th><th>Equipe</th><th>Nº</th></tr>
-                        </thead>
-                        <tbody>
-                `;
+                // Mapear posições atuais
                 let latestPositions = {};
-                posData.forEach(p => { latestPositions[p.driver_number] = p.position; });
-                
+                posData.findLast ? posData.forEach(p => { latestPositions[p.driver_number] = p.position; }) : posData.forEach(p => { latestPositions[p.driver_number] = p.position; });
+
+                // Mapear Gaps (Intervalo)
+                let latestIntervals = {};
+                intervalsData.forEach(i => {
+                    latestIntervals[i.driver_number] = {
+                        gap: i.gap_to_leader !== null ? (i.gap_to_leader === 0 ? 'Líder' : `+${i.gap_to_leader}s`) : '-',
+                        interval: i.interval !== null ? `+${i.interval}s` : '-'
+                    };
+                });
+
+                // Mapear Pneus (Stints atuais)
+                let latestStints = {};
+                stintsData.forEach(st => {
+                    latestStints[st.driver_number] = st.compound;
+                });
+
+                // Mapear se está no Box / Pit Stop recente
+                let driversInPit = {};
+                let recentPits = {};
+                pitData.forEach(pit => {
+                    // se pit_duration for null, pode estar no pit agora
+                    if (!pit.pit_duration) {
+                        driversInPit[pit.driver_number] = true;
+                    }
+                    recentPits[pit.driver_number] = true;
+                });
+
+                // Descobrir melhor volta (Fastest Lap)
+                let bestLapDriverNum = null;
+                let minLapTime = Infinity;
+                let maxLapNum = 0;
+                lapsData.forEach(l => {
+                    if (l.lap_duration && l.lap_duration < minLapTime) {
+                        minLapTime = l.lap_duration;
+                        bestLapDriverNum = l.driver_number;
+                    }
+                    if (l.lap_number && l.lap_number > maxLapNum) {
+                        maxLapNum = l.lap_number;
+                    }
+                });
+
+                // Mostrar contador de voltas se for corrida ou sessão com voltas registradas
+                if (maxLapNum > 0 && (sessionName.toLowerCase().includes('race') || sessionName.toLowerCase().includes('corrida'))) {
+                    let lapBadge = document.getElementById('lapCounterBadge');
+                    lapBadge.style.display = 'inline-block';
+                    lapBadge.innerText = `Volta Atual: ${maxLapNum}`;
+                }
+
                 let sortedDrivers = Object.keys(latestPositions).sort((a,b) => latestPositions[a] - latestPositions[b]);
                 if (sortedDrivers.length === 0) sortedDrivers = Object.keys(driverMap);
 
+                let gridHtml = `
+                    <table class="standings-table">
+                        <thead>
+                            <tr>
+                                <th>Pos</th>
+                                <th>Piloto</th>
+                                <th>Equipe / Escudo</th>
+                                <th>Nº</th>
+                                <th>Gap / Intervalo</th>
+                                <th>Pneus</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
                 if (sortedDrivers.length === 0) {
-                    gridHtml += `<tr><td colspan="4" style="color: #94a3b8; padding: 15px;">Aguardando dados de grid para esta sessão...</td></tr>`;
+                    gridHtml += `<tr><td colspan="6" style="color: #94a3b8; padding: 15px;">Aguardando dados de grid para esta sessão...</td></tr>`;
                 } else {
                     sortedDrivers.forEach((num, index) => {
                         let dInfo = driverMap[num] || { name: `Piloto #${num}`, team: 'Equipe F1', color: '#facc15' };
                         let pos = latestPositions[num] || (index + 1);
+                        let gapInfo = latestIntervals[num] || { gap: '-', interval: '-' };
+                        let tyre = latestStints[num] || 'SOFT';
+                        let tyreBadgeHtml = getTyreBadge(tyre);
+                        let teamShield = getTeamShield(dInfo.team);
+
+                        // Ícones especiais
+                        let fastestIcon = (Number(num) === Number(bestLapDriverNum)) ? ' <span title="Melter Tempo / Volta Mais Rápida">⏱️</span>' : '';
+                        let pitBadgeHtml = driversInPit[num] ? ' <span class="badge-pit">🔧 NO BOX</span>' : (recentPits[num] ? ' <span style="font-size:10px; color:#facc15;" title="Troca de Pneu realizada">🔄 Pneu</span>' : '');
+
                         gridHtml += `
                             <tr>
                                 <td><b>P${pos}</b></td>
-                                <td style="border-left: 4px solid ${dInfo.color};">${dInfo.name}</td>
-                                <td>${dInfo.team}</td>
+                                <td style="border-left: 4px solid ${dInfo.color}; text-align: left; padding-left: 8px;">
+                                    ${dInfo.name} ${fastestIcon} ${pitBadgeHtml}
+                                </td>
+                                <td>${teamShield}</td>
                                 <td>#${num}</td>
+                                <td><span style="color:#f87171; font-weight:bold;">${gapInfo.gap}</span> <span style="font-size:10px; color:#94a3b8;">(${gapInfo.interval})</span></td>
+                                <td>${tyreBadgeHtml}</td>
                             </tr>
                         `;
                     });
@@ -246,12 +372,9 @@ f1_dashboard_html = """
                 let gridContainer = document.getElementById('liveGridContainer');
                 if (gridContainer) gridContainer.innerHTML = gridHtml;
 
-                let locRes = await fetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`);
-                let locData = await locRes.json();
-                
-                // Se não houver dados de localização na sessão "latest" (ex: intervalo entre GPs), buscamos uma sessão recente garantida (ex: GP do Bahrein / Monza recente) para exibir o traçado
+                // Fallback de localizações se estiver vazio
                 if (locData.length === 0) {
-                    let fallbackRes = await fetch('https://api.openf1.org/v1/location?session_key=9616'); // Exemplo de chave de sessão válida com dados de pista
+                    let fallbackRes = await fetch('https://api.openf1.org/v1/location?session_key=9616');
                     locData = await fallbackRes.json();
                 }
 
@@ -315,6 +438,7 @@ f1_dashboard_html = """
                 let data = await res.json();
                 let races = data.MRData.RaceTable.Races;
                 document.getElementById('currentGpName').innerText = "Calendário " + data.MRData.season;
+                document.getElementById('sessionDetailsBadge').innerText = "Temporada Regular";
 
                 let html = `
                     <h3 style="color:#f87171; margin-bottom:8px; font-size:15px;">📅 Calendário da Temporada F1</h3>
@@ -352,6 +476,7 @@ f1_dashboard_html = """
                 let cStandings = dataC.MRData.StandingsTable.StandingsLists[0].ConstructorStandings;
 
                 document.getElementById('currentGpName').innerText = "Classificação do Campeonato";
+                document.getElementById('sessionDetailsBadge').innerText = "Mundial de F1";
 
                 let html = `
                     <h3 style="color:#f87171; margin-bottom:8px; font-size:15px;">🏆 Campeonato de Pilotos</h3>
