@@ -4,20 +4,62 @@ import pandas as pd
 
 st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
 
-# Estilos CSS Avançados para Ocultar Barra Lateral, Topo e Criar Layout Limpo
+# Estilos CSS Avançados para o Layout Estilo Painel Pro (Sem Barra Lateral, Topo Personalizado)
 st.markdown(r"""
 <style>
-    /* Força a remoção completa da barra lateral, cabeçalho e barra de carregamento do Streamlit */
-    [data-testid="stSidebar"] { display: none !important; }
-    div[data-testid="stDecoration"] { visibility: hidden; height: 0px; display: none !important; }
-    header { visibility: hidden; height: 0px; display: none !important; }
+    /* Oculta completamente qualquer cabeçalho, barra de ferramentas ou barra lateral do Streamlit */
+    header[data-testid="stHeader"] { display: none !important; visibility: hidden !important; }
+    [data-testid="stToolbar"] { display: none !important; visibility: hidden !important; }
+    [data-testid="stDecoration"] { display: none !important; visibility: hidden !important; }
+    [data-testid="stSidebar"] { display: none !important; visibility: hidden !important; }
+    
+    .main .block-container {
+        padding-top: 1rem !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+        max-width: 100% !important;
+    }
     
     .stApp {
         background-color: #0b0e14;
         color: #ffffff;
-        padding-top: 0rem;
+    }
+
+    /* Barra de Título Superior Estilo Painel Pro */
+    .top-header {
+        background: linear-gradient(135deg, #0e1626 0%, #17223b 100%);
+        border: 1px solid #1f2a3a;
+        border-radius: 8px;
+        padding: 12px 20px;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+    .top-title {
+        font-size: 1.2rem;
+        font-weight: 900;
+        color: #ffffff;
+        letter-spacing: 0.5px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
     
+    /* Barra de Ticker / Status ao Vivo */
+    .ticker-bar {
+        background: #121824;
+        border: 1px solid #1f2a3a;
+        border-radius: 6px;
+        padding: 8px 15px;
+        font-size: 0.8rem;
+        color: #94a3b8;
+        margin-bottom: 15px;
+        white-space: nowrap;
+        overflow-x: auto;
+    }
+
     .f1-card {
         background: linear-gradient(135deg, #121824 0%, #1a2332 100%);
         border: 1px solid #1f2a3a;
@@ -199,9 +241,28 @@ def get_driver_flag(nationality):
     }
     return flags.get(nationality, "🏁")
 
-# Cabeçalho Principal e Menu de Navegação Horizontal no Topo
-st.markdown("<h2 style='margin: 0 0 10px 0; color: #ffffff;'>🏁 F1 Hub Pro</h2>", unsafe_allow_html=True)
+# 1. Cabeçalho Principal (Estilo Painel Pro)
+st.markdown("""
+<div class="top-header">
+    <div class="top-title">
+        <span>🏁 Painel Pro de F1 ao Vivo</span>
+    </div>
+    <div style="font-size: 0.8rem; color: #38bdf8; font-weight: 700;">
+        F1TV & EA Engine Style
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
+# 2. Ticker de Status Global do Topo
+st.markdown("""
+<div class="ticker-bar">
+    <span style="color: #22c55e; font-weight: 800;">🟢 AO VIVO (GLOBAL)</span> &nbsp;|&nbsp; 
+    <span>Placar e Telemetria em Tempo Real</span> &nbsp;|&nbsp; 
+    <span>Temporada Oficial F1</span>
+</div>
+""", unsafe_allow_html=True)
+
+# 3. Menu de Navegação Horizontal em Botões no Topo
 menu = st.radio(
     "Navegação",
     ["🏎️ Telemetria ao Vivo", "🏆 Classificação do Campeonato", "📅 Próximos GPs (Calendário)"],
