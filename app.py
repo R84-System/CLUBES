@@ -5,7 +5,7 @@ import pandas as pd
 st.set_page_config(page_title="F1 Pro Dashboard - F1TV Style", layout="wide")
 
 # Estilos CSS Avançados (F1 TV Style com fundo claro para o circuito horizontal)
-st.markdown(r"""
+st.markdown("""
 <style>
     .stApp {
         background-color: #0b0e14;
@@ -233,7 +233,8 @@ if menu == "🏎️ Telemetria ao Vivo":
     with col_circuit:
         st.subheader("Circuito em Tempo Real (Horizontal)")
         
-        track_html = r"""
+        # HTML + Canvas para o Circuito Fundo Branco, Pista Preta com Linha Branca no Meio (String normal sem 'f')
+        track_html = """
         <div style="position:relative; width:100%; height:320px; background:#ffffff; border-radius:12px; border:2px solid #cbd5e1; box-shadow: 0 4px 15px rgba(0,0,0,0.15); overflow:hidden;">
             <canvas id="f1Canvas" width="700" height="320" style="width:100%; height:100%;"></canvas>
         </div>
