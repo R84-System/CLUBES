@@ -18,26 +18,51 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!sKey || sKey === "None") return;
         
         try {
-            // Primeiro descobre um piloto ativo na sessão para traçar o circuito base
+            // 1. Descobre um piloto ativo na sessão
             const driversRes = await fetch(`https://api.openf1.org/v1/drivers?session_key=${sKey}`);
             const drivers = await driversRes.json();
             if (!drivers || drivers.length === 0) return;
             
             const sampleDriver = drivers[0].driver_number;
 
-            // Busca a localização apenas desse piloto para desenhar o circuito limpo
-            const res = await fetch(`https://api.openf1.org/v1/location?session_key=${sKey}&driver_number=${sampleDriver}`);
-            const data = await res.json();
+            // 2. Busca as voltas para pegar o intervalo exato de uma volta limpa (sem pit lane)
+            const lapsRes = await fetch(`https://api.openf1.org/v1/laps?session_key=${sKey}&driver_number=${sampleDriver}`);
+            const laps = await lapsRes.json();
+            
+            let lapStart = null;
+            let lapEnd = null;
+
+            if (laps && laps.length > 0) {
+                const validLap = laps.find(l => l.lap_duration && l.date_start && l.date_end && !l.is_pit_out_lap) || laps[laps.length - 2] || laps[0];
+                if (validLap) {
+                    lapStart = validLap.date_start;
+                    lapEnd = validLap.date_end;
+                }
+            }
+
+            let url = `https://api.openf1.org/v1/location?session_key=${sKey}&driver_number=${sampleDriver}`;
+            if (lapStart && lapEnd) {
+                url += `&date>=${lapStart}&date<=${lapEnd}`;
+            }
+
+            // 3. Busca a localização restrita a essa volta perfeita
+            const res = await fetch(url);
+            let data = await res.json();
+            
+            if ((!data || data.length === 0) && lapStart) {
+                const fallbackRes = await fetch(`https://api.openf1.org/v1/location?session_key=${sKey}&driver_number=${sampleDriver}`);
+                data = await fallbackRes.json();
+            }
+
             if (data && data.length > 0) {
-                // Ordena cronologicamente para formar o traçado correto da pista
                 data.sort((a, b) => new Date(a.date) - new Date(b.date));
                 
-                // Amostragem para manter leve
-                const step = Math.max(1, Math.floor(data.length / 1500));
                 trackPoints = [];
-                for (let i = 0; i < data.length; i += step) {
-                    trackPoints.push(data[i]);
-                }
+                data.forEach(p => {
+                    if (p.x !== 0 && p.y !== 0) {
+                        trackPoints.push(p);
+                    }
+                });
             }
         } catch (e) {
             console.error("Erro ao buscar traçado:", e);
@@ -86,10 +111,11 @@ document.addEventListener("DOMContentLoaded", () => {
             let offsetX = 30 - minX * scale + (canvas.width - 60 - (maxX - minX) * scale) / 2;
             let offsetY = 30 - minY * scale + (canvas.height - 60 - (maxY - minY) * scale) / 2;
 
-            // Desenha a linha fina e limpa do circuito
+            // Renderiza o traçado da pista sem falhas e com cantos arredondados suaves
             ctx.strokeStyle = '#3182ce';
             ctx.lineWidth = 3;
             ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
             ctx.beginPath();
             trackPoints.forEach((p, index) => {
                 let px = p.x * scale + offsetX;
