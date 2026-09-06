@@ -19,12 +19,14 @@ function runTracker() {
     let trackPoints = [];
     let driverPositions = {};
     let driversInfo = {};
+    let maxDate = null;
 
     const sKey = window.sessionKey;
     if (!sKey || sKey === "None") return;
 
-    async function fetchMetadata() {
+    async function initTrackerData() {
         try {
+            // 1. Carregar pilotos e cores das equipes
             const dRes = await fetch(`https://api.openf1.org/v1/drivers?session_key=${sKey}`);
             const drivers = await dRes.json();
             if (drivers && drivers.length > 0) {
@@ -35,35 +37,49 @@ function runTracker() {
                     };
                 });
                 
-                // Pega o traçado usando o primeiro piloto válido
+                // 2. Carregar o traçado da pista usando o primeiro piloto como referência
                 const sample = drivers[0].driver_number;
                 const lRes = await fetch(`https://api.openf1.org/v1/location?session_key=${sKey}&driver_number=${sample}`);
                 const locs = await lRes.json();
                 if (locs && locs.length > 0) {
                     locs.sort((a, b) => new Date(a.date) - new Date(b.date));
                     trackPoints = locs.filter(p => p.x !== 0 && p.y !== 0);
+                    
+                    if (trackPoints.length > 0) {
+                        maxDate = trackPoints[trackPoints.length - 1].date;
+                        fetchPositions(maxDate);
+                    }
                 }
             }
         } catch (err) {
-            console.error("Erro ao carregar metadados do circuito:", err);
+            console.error("Erro ao carregar dados do circuito:", err);
         }
     }
 
-    async function fetchPositions() {
+    async function fetchPositions(targetDate) {
         try {
-            const res = await fetch(`https://api.openf1.org/v1/location?session_key=${sKey}`);
+            let url = `https://api.openf1.org/v1/location?session_key=${sKey}`;
+            if (targetDate) {
+                let d = new Date(targetDate);
+                d.setSeconds(d.getSeconds() - 15); // Janela otimizada de tempo
+                url += `&date>=${d.toISOString()}`;
+            }
+            
+            const res = await fetch(url);
             const data = await res.json();
             if (data && data.length > 0) {
                 const latest = {};
                 data.forEach(p => {
-                    if (!latest[p.driver_number] || new Date(p.date) > new Date(latest[p.driver_number].date)) {
-                        latest[p.driver_number] = { x: p.x, y: p.y };
+                    if (p.x !== 0 && p.y !== 0) {
+                        if (!latest[p.driver_number] || new Date(p.date) > new Date(latest[p.driver_number].date)) {
+                            latest[p.driver_number] = { x: p.x, y: p.y, date: p.date };
+                        }
                     }
                 });
                 driverPositions = latest;
             }
         } catch (err) {
-            console.error("Erro ao buscar posições ao vivo:", err);
+            console.error("Erro ao buscar posições dos carros:", err);
         }
     }
 
@@ -71,7 +87,7 @@ function runTracker() {
         ctx.fillStyle = '#0b0e14';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Grid de fundo estilo radar de simulação
+        // Grid de fundo estilo telemetria profissional
         ctx.strokeStyle = '#151d2a';
         ctx.lineWidth = 1;
         const gridSize = 40;
@@ -99,7 +115,7 @@ function runTracker() {
             let offsetX = 40 - minX * scale + (canvas.width - 80 - (maxX - minX) * scale) / 2;
             let offsetY = 40 - minY * scale + (canvas.height - 80 - (maxY - minY) * scale) / 2;
 
-            // Linha da Pista com efeito Neon
+            // Linha da Pista (Neon Azul)
             ctx.shadowBlur = 8;
             ctx.shadowColor = '#1e3a8a';
             ctx.strokeStyle = '#2563eb';
@@ -116,7 +132,7 @@ function runTracker() {
             ctx.stroke();
             ctx.shadowBlur = 0;
 
-            // Renderiza os Carros em Tempo Real com as Cores das Equipes e Siglas
+            // Renderiza os Carros na Pista (Círculos coloridos + Siglas)
             for (let num in driverPositions) {
                 let pos = driverPositions[num];
                 let cx = pos.x * scale + offsetX;
@@ -141,8 +157,9 @@ function runTracker() {
         requestAnimationFrame(render);
     }
 
-    fetchMetadata();
-    fetchPositions();
-    setInterval(fetchPositions, 2000);
+    initTrackerData();
+    setInterval(() => {
+        if (maxDate) fetchPositions(maxDate);
+    }, 4000);
     render();
 }
