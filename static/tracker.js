@@ -19,7 +19,6 @@ function runTracker() {
     let trackPoints = [];
     let driverPositions = {};
     let driversInfo = {};
-    let sessionEndTime = null;
 
     const sKey = window.sessionKey;
     if (!sKey || sKey === "None") return;
@@ -36,18 +35,13 @@ function runTracker() {
                     };
                 });
                 
+                // Pega o traçado da pista usando o primeiro piloto como referência geométrica
                 const sample = drivers[0].driver_number;
                 const lRes = await fetch(`https://api.openf1.org/v1/location?session_key=${sKey}&driver_number=${sample}`);
                 const locs = await lRes.json();
                 if (locs && locs.length > 0) {
                     locs.sort((a, b) => new Date(a.date) - new Date(b.date));
                     trackPoints = locs.filter(p => p.x !== 0 && p.y !== 0);
-                    
-                    if (trackPoints.length > 0) {
-                        // Pega um momento dinâmico próximo ao fim da amostra para espalhar os carros na pista
-                        sessionEndTime = trackPoints[trackPoints.length - 1].date;
-                        fetchPositionsAtTime(sessionEndTime);
-                    }
                 }
             }
         } catch (err) {
@@ -55,12 +49,10 @@ function runTracker() {
         }
     }
 
-    async function fetchPositionsAtTime(targetDateStr) {
+    async function fetchLivePositions() {
         try {
-            let targetDate = new Date(targetDateStr);
-            let startWindow = new Date(targetDate.getTime() - 15000);
-            
-            const res = await fetch(`https://api.openf1.org/v1/location?session_key=${sKey}&date>=${startWindow.toISOString()}&date<=${targetDate.toISOString()}`);
+            // Busca as posições mais recentes de todos os carros em tempo real
+            const res = await fetch(`https://api.openf1.org/v1/location?session_key=${sKey}`);
             const data = await res.json();
             if (data && data.length > 0) {
                 data.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -73,7 +65,7 @@ function runTracker() {
                 driverPositions = latest;
             }
         } catch (err) {
-            console.error("Erro ao buscar posições dos carros:", err);
+            console.error("Erro ao buscar posições ao vivo:", err);
         }
     }
 
@@ -94,7 +86,7 @@ function runTracker() {
         if (trackPoints.length === 0) {
             ctx.fillStyle = '#ffffff';
             ctx.font = '13px sans-serif';
-            ctx.fillText('Sincronizando telemetria do circuito...', 20, 40);
+            ctx.fillText('Aguardando sinal da sessão ao vivo...', 20, 40);
         } else {
             let minX = Math.min(...trackPoints.map(p => p.x));
             let maxX = Math.max(...trackPoints.map(p => p.x));
@@ -149,5 +141,7 @@ function runTracker() {
     }
 
     initTrackerData();
+    fetchLivePositions();
+    setInterval(fetchLivePositions, 3000); // Atualiza as posições a cada 3 segundos
     render();
 }
