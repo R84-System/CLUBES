@@ -197,6 +197,7 @@ f1_dashboard_html = """
     <script>
         let currentView = 'standings';
         let liveInterval = null;
+        let lastGridHtml = "";
 
         function switchView() {
             currentView = document.getElementById('viewSelect').value;
@@ -204,6 +205,7 @@ f1_dashboard_html = """
                 clearInterval(liveInterval);
                 liveInterval = null;
             }
+            lastGridHtml = "";
             loadData();
         }
 
@@ -213,31 +215,36 @@ f1_dashboard_html = """
                 container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">Carregando Classificação do Campeonato e Grid...</div>`;
                 fetchStandings();
             } else if (currentView === 'live') {
-                container.innerHTML = `
-                    <div id="statusBanner" class="waiting-banner">
-                        ⏳ SESSÃO NÃO INICIADA OU AGUARDANDO SINAL AO VIVO...<br>
-                        <span style="font-size:12px; color:#94a3b8; font-weight:normal;">O painel atualizará automaticamente assim que a pista estiver ativa.</span>
-                    </div>
-                    <div class="card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <span style="font-size: 14px; font-weight: bold; color: #f87171;">
-                                <span class="blinking-dot"></span> TELEMETRIA & CIRCUITO EM TEMPO REAL
-                            </span>
-                            <span id="sessionTitle" style="font-size: 12px; color: #94a3b8;">Aguardando transmissão...</span>
+                // Renderiza a estrutura apenas se já não existir para evitar piscar a tela toda
+                if (!document.getElementById('trackCanvas')) {
+                    container.innerHTML = `
+                        <div id="statusBanner" class="waiting-banner">
+                            ⏳ SESSÃO NÃO INICIADA OU AGUARDANDO SINAL AO VIVO...<br>
+                            <span style="font-size:12px; color:#94a3b8; font-weight:normal;">O painel atualizará automaticamente assim que a pista estiver ativa.</span>
                         </div>
-                        <div class="circuit-canvas-container">
-                            <canvas id="trackCanvas" width="700" height="360" style="background: #090d16; border-radius: 6px;"></canvas>
+                        <div class="card">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                <span style="font-size: 14px; font-weight: bold; color: #f87171;">
+                                    <span class="blinking-dot"></span> TELEMETRIA & CIRCUITO EM TEMPO REAL
+                                </span>
+                                <span id="sessionTitle" style="font-size: 12px; color: #94a3b8;">Aguardando transmissão...</span>
+                            </div>
+                            <div class="circuit-canvas-container">
+                                <canvas id="trackCanvas" width="700" height="360" style="background: #090d16; border-radius: 6px;"></canvas>
+                            </div>
                         </div>
-                    </div>
-                    <div class="card">
-                        <div style="font-weight: bold; color: #f87171; margin-bottom: 6px; font-size: 13px;">🏎️ Grid, Tempos de Volta, Pits, Pneus & Voltas</div>
-                        <div id="liveGridContainer">Aguardando início do evento ao vivo...</div>
-                    </div>
-                `;
+                        <div class="card">
+                            <div style="font-weight: bold; color: #f87171; margin-bottom: 6px; font-size: 13px;">🏎️ Grid, Tempos de Volta, Pits, Pneus & Voltas</div>
+                            <div id="liveGridContainer">Aguardando início do evento ao vivo...</div>
+                        </div>
+                    `;
+                }
                 fetchLiveTelemetry();
-                liveInterval = setInterval(() => {
-                    if (currentView === 'live') fetchLiveTelemetry();
-                }, 5000);
+                if (!liveInterval) {
+                    liveInterval = setInterval(() => {
+                        if (currentView === 'live') fetchLiveTelemetry();
+                    }, 5000);
+                }
             } else if (currentView === 'calendar') {
                 container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">Carregando calendário de GPs...</div>`;
                 fetchCalendar();
@@ -315,8 +322,9 @@ f1_dashboard_html = """
                 let sessionMeta = classifySessionName(sessionName);
                 document.getElementById('sessionTypeBadge').innerText = sessionMeta.label;
                 document.getElementById('sessionDetailsBadge').innerText = `Status: AO VIVO`;
-                if(document.getElementById('sessionTitle')) {
-                    document.getElementById('sessionTitle').innerText = `${circuitName} - ${sessionName}`;
+                let sessionTitleElem = document.getElementById('sessionTitle');
+                if(sessionTitleElem) {
+                    sessionTitleElem.innerText = `${circuitName} - ${sessionName}`;
                 }
             }
 
@@ -348,7 +356,6 @@ f1_dashboard_html = """
                 if (banner) banner.style.display = 'none';
             }
 
-            // Alertas de Direção de Prova
             let alertBox = document.getElementById('raceControlAlert');
             if (Array.isArray(raceControlData) && raceControlData.length > 0) {
                 let latestRC = raceControlData[raceControlData.length - 1];
@@ -421,7 +428,6 @@ f1_dashboard_html = """
                 stintsData.forEach(st => { latestStints[st.driver_number] = st.compound; });
             }
 
-            // Identificar Pilotos no Box (PIT) e Voltas
             let maxLapNum = 0;
             let driverCurrentLap = {};
             let driverLastLapTime = {};
@@ -444,11 +450,9 @@ f1_dashboard_html = """
                 });
             }
 
-            // Verificar pit lane atual
             let inPitSet = {};
             if (Array.isArray(pitsData)) {
                 pitsData.forEach(p => {
-                    // Se estiver na volta atual e sem duração registrada, está parado no box
                     if (p.lap_number === driverCurrentLap[p.driver_number] && (p.pit_duration === null || p.pit_duration === undefined)) {
                         inPitSet[p.driver_number] = true;
                     }
@@ -501,14 +505,11 @@ f1_dashboard_html = """
                 let lapTimeData = driverLastLapTime[num];
                 let formattedTime = lapTimeData ? formatLapTime(lapTimeData.duration) : '-';
 
-                // Badges dinâmicos solicitados
                 let isFastest = (parseInt(num) === parseInt(fastestLapDriverNum));
                 let fastestBadge = isFastest ? ' <span title="Volta Mais Rápida" style="cursor:help;">⏱️</span>' : '';
                 let winnerBadge = (isRaceFinished && pos === 1) ? ' <span>🏁</span>' : '';
                 
                 let pitBadge = inPitSet[num] ? ' <span class="badge-pit">PIT</span>' : '';
-                
-                // Detecção de abandono (OUT LAP) se estagnado muitas voltas atrás do líder ou sem atualização recente
                 let isAbandoned = (maxLapNum > 5 && dLap !== '-' && (maxLapNum - dLap > 5));
                 let outBadge = isAbandoned ? ' <span class="badge-out">OUT LAP</span>' : '';
 
@@ -529,10 +530,14 @@ f1_dashboard_html = """
                 `;
             });
             gridHtml += `</tbody></table>`;
+            
+            // Só atualiza o DOM se o conteúdo mudou para evitar piscar a tela
             let gridContainer = document.getElementById('liveGridContainer');
-            if (gridContainer) gridContainer.innerHTML = gridHtml;
+            if (gridContainer && gridHtml !== lastGridHtml) {
+                gridContainer.innerHTML = gridHtml;
+                lastGridHtml = gridHtml;
+            }
 
-            // Renderização do Circuito Canvas
             let canvas = document.getElementById('trackCanvas');
             if (canvas) {
                 let ctx = canvas.getContext('2d');
