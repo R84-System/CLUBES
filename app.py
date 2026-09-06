@@ -178,15 +178,15 @@ f1_dashboard_html = """
             <div>
                 <label style="font-size:11px; color:#fee2e2; display:block; margin-bottom:2px; font-weight:bold;">Visualização</label>
                 <select id="viewSelect" onchange="switchView()">
-                    <option value="standings" selected>🏆 Classificação & Grid (Pré-Sessão)</option>
-                    <option value="live">⚡ Tempo Real (AO VIVO)</option>
+                    <option value="standings">🏆 Classificação & Grid (Campeonato)</option>
+                    <option value="live" selected>⚡ Tempo Real (AO VIVO)</option>
                     <option value="calendar">📅 Calendário</option>
                 </select>
             </div>
             <div id="gpInfoContainer" style="color: #fff; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 10px; padding-bottom: 4px; flex-wrap: wrap;">
                 📍 GP Atual: <span id="currentGpName" style="color: #facc15;">Carregando...</span>
                 <span id="sessionTypeBadge" style="background: #1e293b; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #facc15; border: 1px solid #334155;">Sessão: --</span>
-                <span id="sessionDetailsBadge" style="background: #0f172a; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #f87171; border: 1px solid #334155;">Status: Pronto</span>
+                <span id="sessionDetailsBadge" style="background: #0f172a; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #f87171; border: 1px solid #334155;">Status: AO VIVO</span>
                 <span id="lapCounterBadge" style="background: #0f172a; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #38bdf8; border: 1px solid #334155; display:none;">Volta: --</span>
             </div>
         </div>
@@ -195,7 +195,7 @@ f1_dashboard_html = """
     <div id="mainContainer">Carregando dados da Fórmula 1...</div>
 
     <script>
-        let currentView = 'standings';
+        let currentView = 'live';
         let liveInterval = null;
 
         function switchView() {
@@ -213,11 +213,10 @@ f1_dashboard_html = """
                 container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">Carregando Classificação do Campeonato e Grid...</div>`;
                 fetchStandings();
             } else if (currentView === 'live') {
-                // Monta a estrutura estática da tela AO VIVO apenas uma vez
                 container.innerHTML = `
                     <div id="statusBanner" class="waiting-banner">
-                        ⏳ SESSÃO NÃO INICIADA OU AGUARDANDO SINAL AO VIVO...<br>
-                        <span style="font-size:12px; color:#94a3b8; font-weight:normal;">O painel atualizará automaticamente assim que a pista estiver ativa.</span>
+                        ⏳ CONECTANDO À SESSÃO AO VIVO (OpenF1)...<br>
+                        <span style="font-size:12px; color:#94a3b8; font-weight:normal;">O painel atualizará automaticamente assim que a telemetria estiver ativa.</span>
                     </div>
                     <div class="card">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -247,7 +246,7 @@ f1_dashboard_html = """
                                 </tr>
                             </thead>
                             <tbody id="liveTableBody">
-                                <tr><td colspan="9" style="text-align:center; color:#94a3b8; padding:20px;">Aguardando início do evento ao vivo...</td></tr>
+                                <tr><td colspan="9" style="text-align:center; color:#94a3b8; padding:20px;">Carregando pilotos da sessão atual...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -324,8 +323,8 @@ f1_dashboard_html = """
             let circuitName = 'Circuito';
             let year = new Date().getFullYear();
 
-            if (sessData.length > 0) {
-                let s = sessData[0];
+            if (Array.isArray(sessData) && sessData.length > 0) {
+                let s = sessData[sessData.length - 1]; // Pega a última sessão válida
                 sessionKey = s.session_key;
                 sessionName = s.session_name || "Sessão F1";
                 circuitName = s.circuit_short_name || s.location || "Circuito";
@@ -340,7 +339,7 @@ f1_dashboard_html = """
                 if (detailsBadge) detailsBadge.innerText = `Status: AO VIVO`;
                 let sessionTitleElem = document.getElementById('sessionTitle');
                 if(sessionTitleElem) {
-                    sessionTitleElem.innerText = `${circuitName} - ${sessionName}`;
+                    sessionTitleElem.innerText = `${circuitName} - ${sessionName} (Key: ${sessionKey})`;
                 }
             }
 
@@ -355,18 +354,14 @@ f1_dashboard_html = """
                 safeFetch(`https://api.openf1.org/v1/pits?session_key=${sessionKey}`)
             ]);
 
-            if (!posData || posData.length === 0 || !locData || locData.length === 0) {
-                sessionKey = 9480; 
-                driversData = await safeFetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`);
-                posData = await safeFetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`);
-                intervalsData = await safeFetch(`https://api.openf1.org/v1/intervals?session_key=${sessionKey}`);
-                stintsData = await safeFetch(`https://api.openf1.org/v1/stints?session_key=${sessionKey}`);
-                lapsData = await safeFetch(`https://api.openf1.org/v1/laps?session_key=${sessionKey}`);
-                locData = await safeFetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`);
-                raceControlData = await safeFetch(`https://api.openf1.org/v1/race_control?session_key=${sessionKey}`);
-                pitsData = await safeFetch(`https://api.openf1.org/v1/pits?session_key=${sessionKey}`);
+            // SEM FALLBACK FIXO: Mantém sempre a sessão atual ao vivo, mesmo que os dados ainda estejam chegando
+            let banner = document.getElementById('statusBanner');
+            if ((!posData || posData.length === 0) && (!driversData || driversData.length === 0)) {
+                if (banner) {
+                    banner.style.display = 'block';
+                    banner.innerHTML = `⏳ SESSÃO AO VIVO CONECTADA (Key: ${sessionKey}), MAS OS DADOS AINDA ESTÃO SENDO LIBERADOS PELA FIA...`;
+                }
             } else {
-                let banner = document.getElementById('statusBanner');
                 if (banner) banner.style.display = 'none';
             }
 
@@ -492,7 +487,11 @@ f1_dashboard_html = """
             let tbody = document.getElementById('liveTableBody');
             if (!tbody) return;
 
-            // Atualiza linha por linha sem apagar a tabela (evita totalmente o piscar)
+            if (sortedDrivers.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#94a3b8; padding:20px;">Sessão ativa, mas a tabela de pilotos ainda está vazia na API. Aguarde...</td></tr>`;
+                return;
+            }
+
             sortedDrivers.forEach((num, index) => {
                 let dInfo = driverMap[num] || { name: `Piloto #${num}`, team: 'Equipe F1', color: '#facc15' };
                 let pos = latestPositions[num] || (index + 1);
@@ -531,7 +530,6 @@ f1_dashboard_html = """
                     `;
                     tbody.appendChild(row);
                 } else {
-                    // Atualiza apenas os textos/conteúdos das células individualmente
                     let cPos = document.getElementById(`cell-pos-${num}`);
                     let cName = document.getElementById(`cell-name-${num}`);
                     let cTeam = document.getElementById(`cell-team-${num}`);
@@ -556,7 +554,6 @@ f1_dashboard_html = """
                     if (cLap) cLap.innerHTML = `<b>${dLap}</b>`;
                 }
                 
-                // Reordena a linha na tabela suavemente sem recriar
                 tbody.appendChild(row);
             });
 
@@ -606,7 +603,7 @@ f1_dashboard_html = """
                 } else {
                     ctx.fillStyle = '#f87171';
                     ctx.font = '13px sans-serif';
-                    ctx.fillText("Aguardando telemetria ativa para desenhar o circuito...", 180, 185);
+                    ctx.fillText("Aguardando telemetria ativa para desenhar o circuito...", 160, 185);
                 }
             }
         }
