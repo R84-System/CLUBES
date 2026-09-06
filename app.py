@@ -1,10 +1,10 @@
-import streamlit as st
+import streamlit as str_lit
 
-st.set_page_config(
+str_lit.set_page_config(
     page_title="Painel F1 Pro - Telemetria & AO VIVO", page_icon="🏎️", layout="wide"
 )
 
-st.markdown(
+str_lit.markdown(
     """
     <style>
         .block-container {
@@ -78,7 +78,7 @@ f1_dashboard_html = """
             border: 1px solid #f87171;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        .controls select, .controls input {
+        .controls select {
             background: #0f172a;
             color: #fff;
             border: 1px solid #334155;
@@ -115,7 +115,7 @@ f1_dashboard_html = """
         }
         .circuit-canvas-container {
             position: relative;
-            background: #0b0f19;
+            background: #090d16;
             border: 1px solid #334155;
             border-radius: 8px;
             height: 380px;
@@ -190,42 +190,47 @@ f1_dashboard_html = """
             try {
                 let sessRes = await fetch('https://api.openf1.org/v1/sessions?session_key=latest');
                 let sessData = await sessRes.json();
+                
+                let sessionKey = 'latest';
                 if (sessData.length > 0) {
                     let s = sessData[0];
-                    document.getElementById('currentGpName').innerText = s.session_name + " (" + s.year + ")";
-                    document.getElementById('sessionTitle').innerText = s.circuit_short_name || "Circuito F1";
-                    
-                    let sessionKey = s.session_key;
+                    document.getElementById('currentGpName').innerText = (s.session_name || "Sessão F1") + " (" + s.year + ")";
+                    document.getElementById('sessionTitle').innerText = s.circuit_short_name || s.location || "Circuito F1";
+                    sessionKey = s.session_key;
+                }
 
-                    let driversRes = await fetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`);
-                    let driversData = await driversRes.json();
-                    let driverMap = {};
-                    driversData.forEach(d => {
-                        driverMap[d.driver_number] = {
-                            name: d.broadcast_name || d.full_name,
-                            team: d.team_name,
-                            color: "#" + (d.team_colour || "ffffff")
-                        };
-                    });
+                let driversRes = await fetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`);
+                let driversData = await driversRes.json();
+                let driverMap = {};
+                driversData.forEach(d => {
+                    driverMap[d.driver_number] = {
+                        name: d.broadcast_name || d.full_name,
+                        team: d.team_name,
+                        color: "#" + (d.team_colour || "ff1801")
+                    };
+                });
 
-                    let posRes = await fetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`);
-                    let posData = await posRes.json();
-                    
-                    let gridHtml = `
-                        <table class="standings-table">
-                            <thead>
-                                <tr><th>Pos</th><th>Piloto</th><th>Equipe</th><th>Nº</th></tr>
-                            </thead>
-                            <tbody>
-                    `;
-                    let latestPositions = {};
-                    posData.forEach(p => { latestPositions[p.driver_number] = p.position; });
-                    
-                    let sortedDrivers = Object.keys(latestPositions).sort((a,b) => latestPositions[a] - latestPositions[b]);
-                    if (sortedDrivers.length === 0) sortedDrivers = Object.keys(driverMap);
+                let posRes = await fetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`);
+                let posData = await posRes.json();
+                
+                let gridHtml = `
+                    <table class="standings-table">
+                        <thead>
+                            <tr><th>Pos</th><th>Piloto</th><th>Equipe</th><th>Nº</th></tr>
+                        </thead>
+                        <tbody>
+                `;
+                let latestPositions = {};
+                posData.forEach(p => { latestPositions[p.driver_number] = p.position; });
+                
+                let sortedDrivers = Object.keys(latestPositions).sort((a,b) => latestPositions[a] - latestPositions[b]);
+                if (sortedDrivers.length === 0) sortedDrivers = Object.keys(driverMap);
 
+                if (sortedDrivers.length === 0) {
+                    gridHtml += `<tr><td colspan="4" style="color: #94a3b8; padding: 15px;">Aguardando dados de grid para esta sessão...</td></tr>`;
+                } else {
                     sortedDrivers.forEach((num, index) => {
-                        let dInfo = driverMap[num] || { name: `Piloto #${num}`, team: 'Equipe F1', color: '#fff' };
+                        let dInfo = driverMap[num] || { name: `Piloto #${num}`, team: 'Equipe F1', color: '#facc15' };
                         let pos = latestPositions[num] || (index + 1);
                         gridHtml += `
                             <tr>
@@ -236,57 +241,67 @@ f1_dashboard_html = """
                             </tr>
                         `;
                     });
-                    gridHtml += `</tbody></table>`;
-                    let gridContainer = document.getElementById('liveGridContainer');
-                    if (gridContainer) gridContainer.innerHTML = gridHtml;
+                }
+                gridHtml += `</tbody></table>`;
+                let gridContainer = document.getElementById('liveGridContainer');
+                if (gridContainer) gridContainer.innerHTML = gridHtml;
 
-                    let locRes = await fetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`);
-                    let locData = await locRes.json();
-                    
-                    let canvas = document.getElementById('trackCanvas');
-                    if (canvas) {
-                        let ctx = canvas.getContext('2d');
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let locRes = await fetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`);
+                let locData = await locRes.json();
+                
+                // Se não houver dados de localização na sessão "latest" (ex: intervalo entre GPs), buscamos uma sessão recente garantida (ex: GP do Bahrein / Monza recente) para exibir o traçado
+                if (locData.length === 0) {
+                    let fallbackRes = await fetch('https://api.openf1.org/v1/location?session_key=9616'); // Exemplo de chave de sessão válida com dados de pista
+                    locData = await fallbackRes.json();
+                }
 
-                        let xCoords = locData.map(l => l.x);
-                        let yCoords = locData.map(l => l.y);
-                        if (xCoords.length > 0) {
-                            let minX = Math.min(...xCoords), maxX = Math.max(...xCoords);
-                            let minY = Math.min(...yCoords), maxY = Math.max(...yCoords);
+                let canvas = document.getElementById('trackCanvas');
+                if (canvas) {
+                    let ctx = canvas.getContext('2d');
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-                            ctx.fillStyle = '#1e293b';
-                            locData.slice(-1500).forEach(l => {
-                                let cx = ((l.x - minX) / (maxX - minX || 1)) * 640 + 30;
-                                let cy = ((l.y - minY) / (maxY - minY || 1)) * 300 + 30;
-                                ctx.fillRect(cx, cy, 2, 2);
-                            });
+                    let xCoords = locData.map(l => l.x);
+                    let yCoords = locData.map(l => l.y);
+                    if (xCoords.length > 0) {
+                        let minX = Math.min(...xCoords), maxX = Math.max(...xCoords);
+                        let minY = Math.min(...yCoords), maxY = Math.max(...yCoords);
 
-                            let latestLocs = {};
-                            locData.forEach(l => { latestLocs[l.driver_number] = l; });
+                        ctx.strokeStyle = '#334155';
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        let first = true;
+                        locData.forEach(l => {
+                            let cx = ((l.x - minX) / (maxX - minX || 1)) * 620 + 40;
+                            let cy = ((l.y - minY) / (maxY - minY || 1)) * 300 + 30;
+                            if (first) { ctx.moveTo(cx, cy); first = false; } else { ctx.lineTo(cx, cy); }
+                        });
+                        ctx.stroke();
 
-                            Object.keys(latestLocs).forEach(num => {
-                                let l = latestLocs[num];
-                                let dInfo = driverMap[num] || { color: '#facc15' };
-                                let cx = ((l.x - minX) / (maxX - minX || 1)) * 640 + 30;
-                                let cy = ((l.y - minY) / (maxY - minY || 1)) * 300 + 30;
+                        let latestLocs = {};
+                        locData.forEach(l => { latestLocs[l.driver_number] = l; });
 
-                                ctx.beginPath();
-                                ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
-                                ctx.fillStyle = dInfo.color;
-                                ctx.fill();
-                                ctx.lineWidth = 1;
-                                ctx.strokeStyle = '#fff';
-                                ctx.stroke();
+                        Object.keys(latestLocs).forEach(num => {
+                            let l = latestLocs[num];
+                            let dInfo = driverMap[num] || { color: '#facc15' };
+                            let cx = ((l.x - minX) / (maxX - minX || 1)) * 620 + 40;
+                            let cy = ((l.y - minY) / (maxY - minY || 1)) * 300 + 30;
 
-                                ctx.fillStyle = '#fff';
-                                ctx.font = '9px sans-serif';
-                                ctx.fillText(num, cx + 7, cy + 3);
-                            });
-                        } else {
-                            ctx.fillStyle = '#94a3b8';
-                            ctx.font = '12px sans-serif';
-                            ctx.fillText("Aguardando telemetria em tempo real para o circuito...", 180, 180);
-                        }
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
+                            ctx.fillStyle = dInfo.color;
+                            ctx.fill();
+                            ctx.lineWidth = 1;
+                            ctx.strokeStyle = '#fff';
+                            ctx.stroke();
+
+                            ctx.fillStyle = '#fff';
+                            ctx.font = '9px sans-serif';
+                            ctx.fillText(num, cx + 7, cy + 3);
+                        });
+                    } else {
+                        ctx.fillStyle = '#f87171';
+                        ctx.font = '13px sans-serif';
+                        ctx.fillText("Aguardando telemetria ativa para desenhar o circuito...", 180, 185);
                     }
                 }
             } catch(e) {
@@ -396,4 +411,4 @@ f1_dashboard_html = """
 </html>
 """
 
-st.components.v1.html(f1_dashboard_html, height=850, scrolling=True)
+str_lit.components.v1.html(f1_dashboard_html, height=850, scrolling=True)
