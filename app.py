@@ -75,7 +75,18 @@ st.markdown(r"""
     .timing-left {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
+    }
+    .pit-badge {
+        background: #db2777;
+        color: #ffffff;
+        font-size: 0.6rem;
+        font-weight: 800;
+        padding: 3px 6px;
+        border-radius: 4px;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     .timing-pos {
         background: #1f2a3a;
@@ -100,11 +111,10 @@ st.markdown(r"""
     .tyre-badge {
         font-size: 0.65rem;
         font-weight: 800;
-        padding: 1px 5px;
-        border-radius: 3px;
+        padding: 2px 6px;
+        border-radius: 4px;
         text-align: center;
-        min-width: 16px;
-        margin-left: 6px;
+        min-width: 18px;
     }
     .tyre-soft { background: #da291c; color: #ffffff; }
     .tyre-medium { background: #ffd100; color: #000000; }
@@ -113,6 +123,9 @@ st.markdown(r"""
 
     .timing-right {
         text-align: right;
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
     .timing-time {
         font-weight: 700;
@@ -228,7 +241,14 @@ if menu == "🏎️ Telemetria ao Vivo":
                 intervals_res = requests.get(f"https://api.openf1.org/v1/intervals?session_key={session_key}").json()
                 positions_res = requests.get(f"https://api.openf1.org/v1/position?session_key={session_key}").json()
                 laps_res = requests.get(f"https://api.openf1.org/v1/laps?session_key={session_key}").json()
+                pits_res = requests.get(f"https://api.openf1.org/v1/pits?session_key={session_key}").json()
                 
+                in_pit_drivers = set()
+                if pits_res and isinstance(pits_res, list):
+                    for p in pits_res:
+                        if p.get("pit_duration") is None:
+                            in_pit_drivers.add(p.get("driver_number"))
+
                 current_lap = 1
                 total_laps = 57
                 if laps_res and isinstance(laps_res, list):
@@ -326,7 +346,8 @@ if menu == "🏎️ Telemetria ao Vivo":
                             "TyreClass": tyre_class,
                             "Intervalo": interval_map.get(d_num, "LEADER" if position == 1 else "-"),
                             "Gap": gap_map.get(d_num, "LEADER" if position == 1 else "-"),
-                            "Melhor Volta": best_lap_map.get(d_num, "-")
+                            "Melhor Volta": best_lap_map.get(d_num, "-"),
+                            "InPit": d_num in in_pit_drivers
                         })
                     
                     df_display = pd.DataFrame(table_data)
@@ -341,6 +362,7 @@ if menu == "🏎️ Telemetria ao Vivo":
                         tyre = row["Pneu"]
                         t_class = row["TyreClass"]
                         lap_time = row["Melhor Volta"]
+                        in_pit = row["InPit"]
                         
                         time_display = row["Intervalo"] if is_interval else row["Gap"]
                         if pos == 1:
@@ -348,8 +370,12 @@ if menu == "🏎️ Telemetria ao Vivo":
 
                         ms_html = '<span class="mini-sector ms-green"></span><span class="mini-sector ms-purple"></span><span class="mini-sector ms-green"></span>'
 
+                        pit_html = '<div class="pit-badge">PIT</div>' if in_pit else ''
+
+                        # Pneu posicionado no lado direito fora do bloco do nome, com o relógio ⏱️ e indicador de pit na esquerda
                         row_html = f'''<div class="timing-row {pos_class}">
                             <div class="timing-left">
+                                {pit_html}
                                 <div style="display: flex; flex-direction: column; align-items: center;">
                                     <div class="timing-pos">{pos}</div>
                                     <div style="font-size: 0.6rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div>
@@ -357,7 +383,6 @@ if menu == "🏎️ Telemetria ao Vivo":
                                 <div>
                                     <div style="display: flex; align-items: center;">
                                         <span class="timing-driver">{pilot}</span>
-                                        <span class="tyre-badge {t_class}">{tyre}</span>
                                     </div>
                                     <div class="timing-team">{team}</div>
                                 </div>
@@ -366,7 +391,10 @@ if menu == "🏎️ Telemetria ao Vivo":
                                 {ms_html}
                             </div>
                             <div class="timing-right">
-                                <div class="timing-time">{lap_time}</div>
+                                <div style="text-align: right;">
+                                    <div class="timing-time">⏱️ {lap_time}</div>
+                                </div>
+                                <span class="tyre-badge {t_class}">{tyre}</span>
                             </div>
                         </div>'''
                         st.markdown(row_html, unsafe_allow_html=True)
