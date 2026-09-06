@@ -30,21 +30,51 @@ if session:
     
     session_key = session.get('session_key')
     
-    st.subheader("Painel de Telemetria")
-    st.write(f"Chave da sessão ativa: `{session_key}`")
+    st.subheader("Mapa do Circuito e Posição dos Carros")
     
-    if st.button("Testar Requisição de Localização"):
-        loc_url = f"https://api.openf1.org/v1/location?session_key={session_key}"
-        res = requests.get(loc_url)
-        if res.status_code == 200:
-            loc_data = res.json()
-            if loc_data:
-                df_loc = pd.DataFrame(loc_data)
-                st.success(f"{len(df_loc)} registros de localização encontrados!")
-                st.dataframe(df_loc.tail(10))
+    # Botão para carregar o mapa
+    if st.button("Gerar Mapa da Pista"):
+        with st.spinner("Baixando dados de localização da pista..."):
+            loc_url = f"https://api.openf1.org/v1/location?session_key={session_key}"
+            res = requests.get(loc_url)
+            
+            if res.status_code == 200 and res.json():
+                df = pd.DataFrame(res.json())
+                
+                # Pegamos um piloto de referência para desenhar o traçado do circuito
+                sample_driver = df['driver_number'].iloc[0]
+                df_track = df[df['driver_number'] == sample_driver]
+                
+                # Pegamos a última posição registrada de cada piloto para mostrar no mapa
+                df_latest = df.sort_values(by='date').groupby('driver_number').tail(1)
+                
+                # Criando o gráfico com Plotly
+                fig = px.scatter(
+                    df_track, x='x', y='y',
+                    opacity=0.3,
+                    title=f"Circuito - {session.get('circuit_short_name')}"
+                )
+                
+                # Adicionando os carros na última posição
+                fig.add_scatter(
+                    x=df_latest['x'],
+                    y=df_latest['y'],
+                    mode='markers+text',
+                    text=df_latest['driver_number'],
+                    textposition="top center",
+                    marker=dict(size=12, color='red'),
+                    name='Carros'
+                )
+                
+                fig.update_layout(
+                    xaxis=dict(visible=False),
+                    yaxis=dict(visible=False),
+                    height=600,
+                    margin=dict(l=0, r=0, t=40, b=0)
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
             else:
-                st.info("A API retornou dados vazios para esta sessão (provavelmente a sessão não está ativa no momento).")
-        else:
-            st.error("Erro ao buscar dados de localização.")
+                st.warning("Não há dados de localização suficientes para esta sessão no momento.")
 else:
     st.warning("Não foi possível carregar a sessão atual da OpenF1.")
