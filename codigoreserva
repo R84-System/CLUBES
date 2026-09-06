@@ -216,13 +216,16 @@ if menu == "🏎️ Telemetria ao Vivo":
     def get_latest_session():
         try:
             res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest")
-            return res.json()
+            if res.status_code == 200:
+                return res.json()
+            return []
         except:
             return []
 
     data = get_latest_session()
 
-    if data and len(data) > 0:
+    # Validação segura implementada para evitar IndexError / KeyError
+    if isinstance(data, list) and len(data) > 0:
         latest_session = data[0]
         session_key = latest_session.get("session_key")
         circuit_name = latest_session.get('circuit_short_name', 'F1')
@@ -236,7 +239,7 @@ if menu == "🏎️ Telemetria ao Vivo":
         session_title = "Aguardando Sessão"
         circuit_name = "Circuito F1"
         year = ""
-        st.sidebar.warning("Nenhuma sessão ao vivo encontrada.")
+        st.sidebar.warning("Nenhuma sessão ao vivo encontrada no momento.")
 
     # Banner Superior Dinâmico indicando o status atual ao vivo
     banner_html = f"""
