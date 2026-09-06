@@ -215,44 +215,37 @@ if menu == "🏎️ Telemetria ao Vivo":
     @st.cache_data(ttl=15)
     def get_latest_session():
         try:
-            # 1. Tenta a rota 'latest' oficial
-            res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest", timeout=5)
+            res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest", timeout=10)
             if res.status_code == 200:
-                d = res.json()
-                if isinstance(d, list) and len(d) > 0:
-                    return d[0]
-                elif isinstance(d, dict) and d:
-                    return d
-            
-            # 2. Fallback por ano atual/anterior
-            for yr in [2026, 2025]:
-                res_year = requests.get(f"https://api.openf1.org/v1/sessions?year={yr}", timeout=5)
-                if res_year.status_code == 200:
-                    sessions = res_year.json()
-                    if isinstance(sessions, list) and len(sessions) > 0:
-                        return sessions[-1]
+                return res.json()
+            return []
         except Exception:
-            pass
-        
-        # 3. Fallback de emergência absoluto para app nunca quebrar
-        return {
-            "session_key": 9159,
-            "circuit_short_name": "F1",
-            "year": 2026,
-            "session_name": "Race"
-        }
+            return []
 
-    latest_session = get_latest_session()
-    if not isinstance(latest_session, dict):
-        latest_session = {}
+    data = get_latest_session()
 
-    session_key = latest_session.get("session_key", 9159)
-    circuit_name = latest_session.get('circuit_short_name', 'F1')
-    year = latest_session.get('year', '2026')
-    raw_session_name = latest_session.get('session_name', 'Race')
-    session_title = translate_session_name(raw_session_name)
+    # Validação segura e robusta para tratar tanto list quanto dict ou vazio
+    latest_session = None
+    if isinstance(data, list) and len(data) > 0:
+        latest_session = data[0]
+    elif isinstance(data, dict):
+        latest_session = data
+
+    if latest_session and isinstance(latest_session, dict):
+        session_key = latest_session.get("session_key")
+        circuit_name = latest_session.get('circuit_short_name', 'F1')
+        year = latest_session.get('year', '')
+        raw_session_name = latest_session.get('session_name', '')
+        session_title = translate_session_name(raw_session_name)
         
-    st.sidebar.success(f"Sessão: {session_title}\n\n📍 {circuit_name} ({year})")
+        st.sidebar.success(f"Sessão: {session_title}\n\n📍 {circuit_name} ({year})")
+    else:
+        session_key = None
+        session_title = "Aguardando Sessão"
+        circuit_name = "Circuito F1"
+        year = ""
+        raw_session_name = ""
+        st.sidebar.warning("Nenhuma sessão ao vivo encontrada no momento.")
 
     # Banner Superior Dinâmico indicando o status atual ao vivo
     banner_html = f"""
