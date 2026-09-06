@@ -18,12 +18,22 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!sKey || sKey === "None") return;
         
         try {
-            // Busca dados de localização para mapear o circuito completo
-            const res = await fetch(`https://api.openf1.org/v1/location?session_key=${sKey}`);
+            // Primeiro descobre um piloto ativo na sessão para traçar o circuito base
+            const driversRes = await fetch(`https://api.openf1.org/v1/drivers?session_key=${sKey}`);
+            const drivers = await driversRes.json();
+            if (!drivers || drivers.length === 0) return;
+            
+            const sampleDriver = drivers[0].driver_number;
+
+            // Busca a localização apenas desse piloto para desenhar o circuito limpo
+            const res = await fetch(`https://api.openf1.org/v1/location?session_key=${sKey}&driver_number=${sampleDriver}`);
             const data = await res.json();
             if (data && data.length > 0) {
-                // Pega uma amostra espaçada para desenhar todo o traçado da pista sem travar o navegador
-                const step = Math.max(1, Math.floor(data.length / 3000));
+                // Ordena cronologicamente para formar o traçado correto da pista
+                data.sort((a, b) => new Date(a.date) - new Date(b.date));
+                
+                // Amostragem para manter leve
+                const step = Math.max(1, Math.floor(data.length / 1500));
                 trackPoints = [];
                 for (let i = 0; i < data.length; i += step) {
                     trackPoints.push(data[i]);
@@ -42,7 +52,6 @@ document.addEventListener("DOMContentLoaded", () => {
             const res = await fetch(`https://api.openf1.org/v1/position?session_key=${sKey}&per_page=100`);
             const data = await res.json();
             if (data && data.length > 0) {
-                // Agrupa a última posição conhecida de cada número de carro
                 data.forEach(p => {
                     driverPositions[p.driver_number] = { x: p.x, y: p.y };
                 });
@@ -56,7 +65,6 @@ document.addEventListener("DOMContentLoaded", () => {
         ctx.fillStyle = '#151820';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Status no canto do mapa
         ctx.fillStyle = '#4a5568';
         ctx.font = '12px sans-serif';
         ctx.fillText(`Session Key: ${window.sessionKey || 'N/A'}`, 15, 25);
@@ -64,9 +72,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (trackPoints.length === 0) {
             ctx.fillStyle = '#a0aec0';
             ctx.font = '14px sans-serif';
-            ctx.fillText('Carregando traçado completo do circuito...', 15, 50);
+            ctx.fillText('Carregando traçado do circuito...', 15, 50);
         } else {
-            // Encontra os limites (Min/Max) para centralizar e ajustar a escala perfeitamente no Canvas
             let minX = Math.min(...trackPoints.map(p => p.x));
             let maxX = Math.max(...trackPoints.map(p => p.x));
             let minY = Math.min(...trackPoints.map(p => p.y));
@@ -79,9 +86,9 @@ document.addEventListener("DOMContentLoaded", () => {
             let offsetX = 30 - minX * scale + (canvas.width - 60 - (maxX - minX) * scale) / 2;
             let offsetY = 30 - minY * scale + (canvas.height - 60 - (maxY - minY) * scale) / 2;
 
-            // Desenha a linha do circuito
-            ctx.strokeStyle = '#2d3748';
-            ctx.lineWidth = 5;
+            // Desenha a linha fina e limpa do circuito
+            ctx.strokeStyle = '#3182ce';
+            ctx.lineWidth = 3;
             ctx.lineCap = 'round';
             ctx.beginPath();
             trackPoints.forEach((p, index) => {
@@ -92,27 +99,24 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             ctx.stroke();
 
-            // Desenha os pontos dos carros em tempo real sobre a pista
+            // Desenha os pontos dos carros em tempo real
             for (let driver in driverPositions) {
                 let pos = driverPositions[driver];
                 let cx = pos.x * scale + offsetX;
                 let cy = pos.y * scale + offsetY;
 
-                // Ponto do carro
                 ctx.fillStyle = '#e10600';
                 ctx.beginPath();
-                ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+                ctx.arc(cx, cy, 5, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Borda branca para destaque
                 ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 1.5;
+                ctx.lineWidth = 1;
                 ctx.stroke();
 
-                // Número do piloto
                 ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 11px sans-serif';
-                ctx.fillText(`#${driver}`, cx + 10, cy + 4);
+                ctx.font = 'bold 10px sans-serif';
+                ctx.fillText(`#${driver}`, cx + 8, cy + 4);
             }
         }
 
@@ -122,7 +126,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (window.sessionKey && window.sessionKey !== "None") {
         fetchTrackData();
         fetchLivePositions();
-        setInterval(fetchLivePositions, 2000); // Atualiza posições dos carros de forma fluida
+        setInterval(fetchLivePositions, 2000);
     }
 
     render();
