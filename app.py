@@ -75,7 +75,7 @@ st.markdown(r"""
     .timing-left {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
     }
     .timing-pos {
         background: #1f2a3a;
@@ -84,7 +84,7 @@ st.markdown(r"""
         font-size: 0.85rem;
         padding: 2px 6px;
         border-radius: 4px;
-        min-width: 26px;
+        min-width: 28px;
         text-align: center;
     }
     .timing-driver {
@@ -352,7 +352,7 @@ if menu == "🏎️ Telemetria ao Vivo":
                             <div class="timing-left">
                                 <div style="display: flex; flex-direction: column; align-items: center;">
                                     <div class="timing-pos">{pos}</div>
-                                    <div style="font-size: 0.65rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div>
+                                    <div style="font-size: 0.6rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div>
                                 </div>
                                 <div>
                                     <div style="display: flex; align-items: center;">
