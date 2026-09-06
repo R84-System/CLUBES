@@ -7,34 +7,43 @@ st.set_page_config(page_title="F1 Live Dashboard", layout="wide")
 
 st.title("🏎️ F1 Live Dashboard - OpenF1")
 
-@st.cache_data(ttl=60)
-def get_latest_session():
-    url = "https://api.openf1.org/v1/sessions?session_key=latest"
+@st.cache_data(ttl=300)
+def get_sessions():
+    url = "https://api.openf1.org/v1/sessions?year=2024"
     try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            if data:
-                return data[0]
-    except Exception as e:
-        st.error(f"Erro ao conectar com a API: {e}")
-    return None
+        res = requests.get(url)
+        if res.status_code == 200:
+            return pd.DataFrame(res.json())
+    except:
+        pass
+    return pd.DataFrame()
 
-session = get_latest_session()
+df_sessions = get_sessions()
 
-if session:
-    st.sidebar.success("Sessão Conectada!")
-    st.sidebar.write(f"**Nome:** {session.get('session_name')}")
-    st.sidebar.write(f"**Circuito:** {session.get('circuit_short_name')}")
-    st.sidebar.write(f"**Ano:** {session.get('year')}")
+if not df_sessions.empty:
+    st.sidebar.header("Configuração da Sessão")
     
-    session_key = session.get('session_key')
+    # Filtros para escolher o ano, tipo de sessão e circuito
+    years = sorted(df_sessions['year'].unique(), reverse=True)
+    selected_year = st.sidebar.selectbox("Ano", years)
     
-    st.subheader(f"Painel Oficial - {session.get('circuit_short_name')} ({session.get('year')})")
+    df_filtered_year = df_sessions[df_sessions['year'] == selected_year]
+    circuit_list = df_filtered_year['circuit_short_name'].unique()
+    selected_circuit = st.sidebar.selectbox("Circuito", circuit_list)
     
-    if st.button("Carregar Dados da Sessão (Mapa + Posições)"):
-        with st.spinner("Buscando telemetria e posições..."):
-            # Requisições em paralelo lógico
+    df_filtered_circuit = df_filtered_year[df_filtered_year['circuit_short_name'] == selected_circuit]
+    session_name_list = df_filtered_circuit['session_name'].unique()
+    selected_session_name = st.sidebar.selectbox("Sessão", session_name_list)
+    
+    session_row = df_filtered_circuit[df_filtered_circuit['session_name'] == selected_session_name].iloc[0]
+    session_key = session_row['session_key']
+    
+    st.sidebar.success(f"Sessão Selecionada: {session_key}")
+    
+    st.subheader(f"Painel Oficial - {selected_circuit} ({selected_year}) - {selected_session_name}")
+    
+    if st.button("Carregar Dados da Sessão"):
+        with st.spinner("Baixando telemetria e posições da API..."):
             loc_res = requests.get(f"https://api.openf1.org/v1/location?session_key={session_key}")
             pos_res = requests.get(f"https://api.openf1.org/v1/position?session_key={session_key}")
             drv_res = requests.get(f"https://api.openf1.org/v1/drivers?session_key={session_key}")
@@ -56,7 +65,7 @@ if session:
                         
                         fig = px.scatter(
                             df_track, x='x', y='y',
-                            opacity=0.3,
+                            opacity=0.2,
                             height=550
                         )
                         fig.add_scatter(
@@ -65,18 +74,20 @@ if session:
                             mode='markers+text',
                             text=df_latest_loc['driver_number'],
                             textposition="top center",
-                            marker=dict(size=10, color='red'),
+                            marker=dict(size=12, color='red'),
                             name='Carros'
                         )
                         fig.update_layout(
                             xaxis=dict(visible=False),
                             yaxis=dict(visible=False),
                             margin=dict(l=0, r=0, t=0, b=0),
-                            showlegend=False
+                            showlegend=False,
+                            plot_bgcolor='rgba(0,0,0,0)',
+                            paper_bgcolor='rgba(0,0,0,0)'
                         )
                         st.plotly_chart(fig, use_container_width=True)
                     else:
-                        st.warning("Sem dados de localização.")
+                        st.warning("Sem dados de localização para esta sessão.")
                 
                 with col2:
                     st.markdown("### 📊 Classificação")
@@ -86,14 +97,13 @@ if session:
                         
                         if drv_data:
                             df_drv = pd.DataFrame(drv_data)
-                            df_table = pd.merge(df_latest_pos, df_drv[['driver_number', 'name_acronym', 'team_name']], on='driver_number', how='left')
+                            df_table = pd.merge(df_latest_pos, df_drv[['driver_number', 'name_acronym', 'team_name', 'team_colour']], on='driver_number', how='left')
                         else:
                             df_table = df_latest_pos
                             
-                        # Ordenar por posição se a coluna existir
                         if 'position' in df_table.columns:
                             df_table = df_table.sort_values(by='position')
-                            cols_to_show = ['position', 'driver_number', 'name_acronym'] if 'name_acronym' in df_table.columns else ['position', 'driver_number']
+                            cols_to_show = ['position', 'driver_number', 'name_acronym', 'team_name'] if 'name_acronym' in df_table.columns else ['position', 'driver_number']
                             st.dataframe(df_table[cols_to_show], hide_index=True, use_container_width=True)
                         else:
                             st.dataframe(df_table, use_container_width=True)
@@ -102,4 +112,4 @@ if session:
             else:
                 st.error("Erro ao buscar dados da API da OpenF1.")
 else:
-    st.warning("Não foi possível carregar a sessão atual da OpenF1.")
+    st.error("Não foi possível carregar a lista de sessões da OpenF1.")
