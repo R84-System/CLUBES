@@ -1,7 +1,7 @@
 import streamlit as str_lit
 
 str_lit.set_page_config(
-    page_title="Painel F1 Pro - Tempo Real & Classificação", page_icon="🏎️", layout="wide"
+    page_title="Painel F1 Pro - Tempo Real & Alertas", page_icon="🏎️", layout="wide"
 )
 
 str_lit.markdown(
@@ -124,25 +124,25 @@ f1_dashboard_html = """
             align-items: center;
             overflow: hidden;
         }
-        .badge-pit {
-            background-color: #eab308;
-            color: #000;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: bold;
-            margin-left: 5px;
-            display: inline-block;
-        }
         .waiting-banner {
             background: #0f172a;
             border: 1px dashed #f59e0b;
-            padding: 20px;
+            padding: 15px;
             text-align: center;
             border-radius: 8px;
             color: #ffb020;
             font-weight: bold;
             margin-bottom: 12px;
+            font-size: 13px;
+        }
+        .alert-banner {
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 13px;
+            display: none;
         }
     </style>
 </head>
@@ -151,6 +151,10 @@ f1_dashboard_html = """
         <h3 style="margin-top:0; margin-bottom:6px; display:flex; align-items:center; gap:8px; font-size: 18px;">
             🏎️ F1 Pro - Central de Classificação & Tempo Real
         </h3>
+        
+        <!-- Banner de Alertas Dinâmicos (Safety Car, Bandeiras, etc) -->
+        <div id="raceControlAlert" class="alert-banner"></div>
+
         <div class="controls">
             <div>
                 <label style="font-size:11px; color:#fee2e2; display:block; margin-bottom:2px; font-weight:bold;">Visualização</label>
@@ -193,7 +197,7 @@ f1_dashboard_html = """
                 container.innerHTML = `
                     <div id="statusBanner" class="waiting-banner">
                         ⏳ SESSÃO NÃO INICIADA OU AGUARDANDO SINAL AO VIVO...<br>
-                        <span style="font-size:12px; color:#94a3b8; font-weight:normal;">O painel começará a atualizar automaticamente assim que a sessão iniciar na pista.</span>
+                        <span style="font-size:12px; color:#94a3b8; font-weight:normal;">O painel atualizará automaticamente assim que a pista estiver ativa.</span>
                     </div>
                     <div class="card">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -207,7 +211,7 @@ f1_dashboard_html = """
                         </div>
                     </div>
                     <div class="card">
-                        <div style="font-weight: bold; color: #f87171; margin-bottom: 6px; font-size: 13px;">🏎️ Grid, Gaps, Pneus & Voltas em Tempo Real</div>
+                        <div style="font-weight: bold; color: #f87171; margin-bottom: 6px; font-size: 13px;">🏎️ Grid, Gaps, Pneus, Voltas & Volta Mais Rápida (⏱️)</div>
                         <div id="liveGridContainer">Aguardando início do evento ao vivo...</div>
                     </div>
                 `;
@@ -251,22 +255,15 @@ f1_dashboard_html = """
         function classifySessionName(name) {
             if (!name) return { label: 'Sessão F1', type: 'other' };
             let n = name.toLowerCase();
-            if (n.includes('practice 1') || n.includes('practice 2') || n.includes('practice 3') || n.includes('treino')) {
-                return { label: '🛠️ Treino Livre', type: 'practice' };
-            }
+            if (n.includes('practice') || n.includes('treino')) return { label: '🛠️ Treino Livre', type: 'practice' };
             if (n.includes('qualifying') || n.includes('quali')) {
-                if (n.includes('q1')) return { label: '⏱️ Qualificação (Q1)', type: 'quali' };
-                if (n.includes('q2')) return { label: '⏱️ Qualificação (Q2)', type: 'quali' };
-                if (n.includes('q3')) return { label: '⏱️ Qualificação (Q3)', type: 'quali' };
+                if (n.includes('q1')) return { label: '⏱️ Q1', type: 'quali' };
+                if (n.includes('q2')) return { label: '⏱️ Q2', type: 'quali' };
+                if (n.includes('q3')) return { label: '⏱️ Q3', type: 'quali' };
                 return { label: '⏱️ Qualificação', type: 'quali' };
             }
-            if (n.includes('sprint')) {
-                if (n.includes('shootout')) return { label: '🏁 Sprint Shootout', type: 'sprint' };
-                return { label: '🏁 Corrida Sprint', type: 'sprint' };
-            }
-            if (n.includes('race') || n.includes('grand prix') || n.includes('corrida')) {
-                return { label: '🏁 Corrida Oficial', type: 'race' };
-            }
+            if (n.includes('sprint')) return { label: '🏁 Sprint', type: 'sprint' };
+            if (n.includes('race') || n.includes('grand prix') || n.includes('corrida')) return { label: '🏁 Corrida Oficial', type: 'race' };
             return { label: name, type: 'other' };
         }
 
@@ -297,16 +294,16 @@ f1_dashboard_html = """
                 }
             }
 
-            let [driversData, posData, intervalsData, stintsData, lapsData, locData] = await Promise.all([
+            let [driversData, posData, intervalsData, stintsData, lapsData, locData, raceControlData] = await Promise.all([
                 safeFetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`),
                 safeFetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`),
                 safeFetch(`https://api.openf1.org/v1/intervals?session_key=${sessionKey}`),
                 safeFetch(`https://api.openf1.org/v1/stints?session_key=${sessionKey}`),
                 safeFetch(`https://api.openf1.org/v1/laps?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`)
+                safeFetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`),
+                safeFetch(`https://api.openf1.org/v1/race_control?session_key=${sessionKey}`)
             ]);
 
-            // Se não houver dados ao vivo no momento, usa sessão de referência para exibir demonstração/grid base
             let isSimulation = false;
             if (!posData || posData.length === 0 || !locData || locData.length === 0) {
                 isSimulation = true;
@@ -317,9 +314,52 @@ f1_dashboard_html = """
                 stintsData = await safeFetch(`https://api.openf1.org/v1/stints?session_key=${sessionKey}`);
                 lapsData = await safeFetch(`https://api.openf1.org/v1/laps?session_key=${sessionKey}`);
                 locData = await safeFetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`);
+                raceControlData = await safeFetch(`https://api.openf1.org/v1/race_control?session_key=${sessionKey}`);
             } else {
                 let banner = document.getElementById('statusBanner');
                 if (banner) banner.style.display = 'none';
+            }
+
+            // Processamento de Alertas de Direção de Prova (Safety Car, Bandeiras)
+            let alertBox = document.getElementById('raceControlAlert');
+            if (Array.isArray(raceControlData) && raceControlData.length > 0) {
+                let latestRC = raceControlData[raceControlData.length - 1];
+                let msg = (latestRC.message || '').toUpperCase();
+                let flag = (latestRC.flag || '').toUpperCase();
+                let category = (latestRC.category || '').toUpperCase();
+
+                let alertText = "";
+                let alertBg = "#1e293b";
+                let alertColor = "#fff";
+                let showAlert = false;
+
+                if (msg.includes('SAFETY CAR') || category.includes('SAFETYCAR')) {
+                    alertText = `🚨 ALERTA DIREÇÃO DE PROVA: ${latestRC.message}`;
+                    alertBg = "#ca8a04"; alertColor = "#000"; showAlert = true;
+                } else if (flag === 'YELLOW' || msg.includes('YELLOW FLAG')) {
+                    alertText = `⚠️ BANDEIRA AMARELA: ${latestRC.message}`;
+                    alertBg = "#eab308"; alertColor = "#000"; showAlert = true;
+                } else if (flag === 'RED' || msg.includes('RED FLAG')) {
+                    alertText = `🛑 BANDEIRA VERMELHA: ${latestRC.message}`;
+                    alertBg = "#dc2626"; alertColor = "#fff"; showAlert = true;
+                } else if (flag === 'GREEN' || msg.includes('TRACK CLEAR')) {
+                    alertText = `🟢 PISTA LIVRE / BANDEIRA VERDE`;
+                    alertBg = "#16a34a"; alertColor = "#fff"; showAlert = true;
+                } else if (msg.includes('CHECKERED') || flag === 'CHEQUERED') {
+                    alertText = `🏁 BANDEIRA QUADRICULADA! FIM DE SESSÃO.`;
+                    alertBg = "#334155"; alertColor = "#facc15"; showAlert = true;
+                }
+
+                if (showAlert) {
+                    alertBox.style.display = 'block';
+                    alertBox.style.background = alertBg;
+                    alertBox.style.color = alertColor;
+                    alertBox.innerHTML = alertText;
+                } else {
+                    alertBox.style.display = 'none';
+                }
+            } else {
+                alertBox.style.display = 'none';
             }
 
             let driverMap = {};
@@ -353,37 +393,35 @@ f1_dashboard_html = """
                 stintsData.forEach(st => { latestStints[st.driver_number] = st.compound; });
             }
 
-            // Cálculo da Volta Atual e Voltas Totais
+            // Descobrir a Volta Mais Rápida (Fastest Lap) e Volta Atual
             let maxLapNum = 0;
             let driverCurrentLap = {};
+            let fastestLapDriverNum = null;
+            let minLapTime = Infinity;
+
             if (Array.isArray(lapsData)) {
                 lapsData.forEach(l => {
                     if (l.lap_number > maxLapNum) maxLapNum = l.lap_number;
                     if (!driverCurrentLap[l.driver_number] || l.lap_number > driverCurrentLap[l.driver_number]) {
                         driverCurrentLap[l.driver_number] = l.lap_number;
                     }
+                    if (l.lap_duration && l.lap_duration < minLapTime) {
+                        minLapTime = l.lap_duration;
+                        fastestLapDriverNum = l.driver_number;
+                    }
                 });
             }
-            let totalLapsEst = maxLapNum > 0 ? Math.max(maxLapNum, 57) : 57; // Estimativa padrão ou máxima vista
+            let totalLapsEst = maxLapNum > 0 ? Math.max(maxLapNum, 57) : 57;
             let currentLapBadge = document.getElementById('lapCounterBadge');
             if (currentLapBadge) {
                 currentLapBadge.style.display = 'inline-block';
                 currentLapBadge.innerText = `Volta: ${maxLapNum || '--'} / ${totalLapsEst}`;
             }
 
-            // Verificação de Término de Corrida (Bandeira Quadriculada)
             let isRaceFinished = false;
             let sessionMeta = classifySessionName(sessionName);
             if (sessionMeta.type === 'race' && maxLapNum >= totalLapsEst - 1 && maxLapNum > 0) {
                 isRaceFinished = true;
-                let banner = document.getElementById('statusBanner');
-                if (banner) {
-                    banner.style.display = 'block';
-                    banner.style.background = '#1e293b';
-                    banner.style.borderColor = '#22c55e';
-                    banner.style.color = '#22c55e';
-                    banner.innerHTML = `🏁 CORRIDA FINALIZADA! - BANDEIRA QUADRICULADA 🏁<br><span style="font-size:12px; color:#94a3b8; font-weight:normal;">Classificação final confirmada na pista.</span>`;
-                }
             }
 
             let sortedDrivers = Object.keys(latestPositions).sort((a,b) => latestPositions[a] - latestPositions[b]);
@@ -401,7 +439,6 @@ f1_dashboard_html = """
                             <th>Intervalo</th>
                             <th>Pneus</th>
                             <th>Volta Atual</th>
-                            ${isRaceFinished ? '<th>Status Final</th>' : ''}
                         </tr>
                     </thead>
                     <tbody>
@@ -415,12 +452,17 @@ f1_dashboard_html = """
                 let tyreBadgeHtml = getTyreBadge(tyre);
                 let teamShield = getTeamShield(dInfo.team);
                 let dLap = driverCurrentLap[num] || maxLapNum || '-';
+                
+                // Verifica se este piloto tem a volta mais rápida
+                let isFastest = (parseInt(num) === parseInt(fastestLapDriverNum));
+                let fastestBadge = isFastest ? ' <span title="Volta Mais Rápida da Sessão" style="cursor:help; font-size:14px;">⏱️</span>' : '';
+                let winnerBadge = (isRaceFinished && pos === 1) ? ' <span style="font-size:14px;">🏁</span>' : '';
 
                 gridHtml += `
                     <tr>
                         <td><b>P${pos}</b></td>
                         <td style="border-left: 4px solid ${dInfo.color}; text-align: left; padding-left: 8px;">
-                            ${dInfo.name}
+                            ${dInfo.name} ${fastestBadge} ${winnerBadge}
                         </td>
                         <td>${teamShield}</td>
                         <td>#${num}</td>
@@ -428,7 +470,6 @@ f1_dashboard_html = """
                         <td><span style="color:#38bdf8;">${gapInfo.interval}</span></td>
                         <td>${tyreBadgeHtml}</td>
                         <td><b>${dLap}</b></td>
-                        ${isRaceFinished ? `<td><span style="color:#22c55e; font-weight:bold;">🏁 🏁 🏁</span></td>` : ''}
                     </tr>
                 `;
             });
@@ -499,6 +540,7 @@ f1_dashboard_html = """
                 document.getElementById('currentGpName').innerText = "Temporada Atual";
                 document.getElementById('sessionTypeBadge').innerText = "Campeonato Geral";
                 document.getElementById('sessionDetailsBadge').innerText = "Tabela Oficial";
+                document.getElementById('raceControlAlert').style.display = 'none';
 
                 let html = `
                     <div class="card">
@@ -558,6 +600,7 @@ f1_dashboard_html = """
                 document.getElementById('currentGpName').innerText = "Calendário " + (res.MRData?.season || '');
                 document.getElementById('sessionTypeBadge').innerText = "Temporada Regular";
                 document.getElementById('sessionDetailsBadge').innerText = "Etapas";
+                document.getElementById('raceControlAlert').style.display = 'none';
 
                 let html = `
                     <div class="card">
