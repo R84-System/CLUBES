@@ -197,7 +197,6 @@ f1_dashboard_html = """
     <script>
         let currentView = 'standings';
         let liveInterval = null;
-        let lastGridHtml = "";
 
         function switchView() {
             currentView = document.getElementById('viewSelect').value;
@@ -205,7 +204,6 @@ f1_dashboard_html = """
                 clearInterval(liveInterval);
                 liveInterval = null;
             }
-            lastGridHtml = "";
             loadData();
         }
 
@@ -215,30 +213,45 @@ f1_dashboard_html = """
                 container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">Carregando Classificação do Campeonato e Grid...</div>`;
                 fetchStandings();
             } else if (currentView === 'live') {
-                // Renderiza a estrutura apenas se já não existir para evitar piscar a tela toda
-                if (!document.getElementById('trackCanvas')) {
-                    container.innerHTML = `
-                        <div id="statusBanner" class="waiting-banner">
-                            ⏳ SESSÃO NÃO INICIADA OU AGUARDANDO SINAL AO VIVO...<br>
-                            <span style="font-size:12px; color:#94a3b8; font-weight:normal;">O painel atualizará automaticamente assim que a pista estiver ativa.</span>
+                // Monta a estrutura estática da tela AO VIVO apenas uma vez
+                container.innerHTML = `
+                    <div id="statusBanner" class="waiting-banner">
+                        ⏳ SESSÃO NÃO INICIADA OU AGUARDANDO SINAL AO VIVO...<br>
+                        <span style="font-size:12px; color:#94a3b8; font-weight:normal;">O painel atualizará automaticamente assim que a pista estiver ativa.</span>
+                    </div>
+                    <div class="card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="font-size: 14px; font-weight: bold; color: #f87171;">
+                                <span class="blinking-dot"></span> TELEMETRIA & CIRCUITO EM TEMPO REAL
+                            </span>
+                            <span id="sessionTitle" style="font-size: 12px; color: #94a3b8;">Aguardando transmissão...</span>
                         </div>
-                        <div class="card">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                <span style="font-size: 14px; font-weight: bold; color: #f87171;">
-                                    <span class="blinking-dot"></span> TELEMETRIA & CIRCUITO EM TEMPO REAL
-                                </span>
-                                <span id="sessionTitle" style="font-size: 12px; color: #94a3b8;">Aguardando transmissão...</span>
-                            </div>
-                            <div class="circuit-canvas-container">
-                                <canvas id="trackCanvas" width="700" height="360" style="background: #090d16; border-radius: 6px;"></canvas>
-                            </div>
+                        <div class="circuit-canvas-container">
+                            <canvas id="trackCanvas" width="700" height="360" style="background: #090d16; border-radius: 6px;"></canvas>
                         </div>
-                        <div class="card">
-                            <div style="font-weight: bold; color: #f87171; margin-bottom: 6px; font-size: 13px;">🏎️ Grid, Tempos de Volta, Pits, Pneus & Voltas</div>
-                            <div id="liveGridContainer">Aguardando início do evento ao vivo...</div>
-                        </div>
-                    `;
-                }
+                    </div>
+                    <div class="card">
+                        <div style="font-weight: bold; color: #f87171; margin-bottom: 6px; font-size: 13px;">🏎️ Grid, Tempos de Volta, Pits, Pneus & Voltas</div>
+                        <table id="liveTable" class="standings-table">
+                            <thead>
+                                <tr>
+                                    <th>Pos</th>
+                                    <th>Piloto</th>
+                                    <th>Equipe / Escudo</th>
+                                    <th>Nº</th>
+                                    <th>Tempo da Volta</th>
+                                    <th>Gap p/ Líder</th>
+                                    <th>Intervalo</th>
+                                    <th>Pneus</th>
+                                    <th>Volta Atual</th>
+                                </tr>
+                            </thead>
+                            <tbody id="liveTableBody">
+                                <tr><td colspan="9" style="text-align:center; color:#94a3b8; padding:20px;">Aguardando início do evento ao vivo...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                `;
                 fetchLiveTelemetry();
                 if (!liveInterval) {
                     liveInterval = setInterval(() => {
@@ -317,11 +330,14 @@ f1_dashboard_html = """
                 sessionName = s.session_name || "Sessão F1";
                 circuitName = s.circuit_short_name || s.location || "Circuito";
                 year = s.year || year;
-                document.getElementById('currentGpName').innerText = `${s.location || circuitName} (${year})`;
+                let gpElem = document.getElementById('currentGpName');
+                if (gpElem) gpElem.innerText = `${s.location || circuitName} (${year})`;
                 
                 let sessionMeta = classifySessionName(sessionName);
-                document.getElementById('sessionTypeBadge').innerText = sessionMeta.label;
-                document.getElementById('sessionDetailsBadge').innerText = `Status: AO VIVO`;
+                let typeBadge = document.getElementById('sessionTypeBadge');
+                let detailsBadge = document.getElementById('sessionDetailsBadge');
+                if (typeBadge) typeBadge.innerText = sessionMeta.label;
+                if (detailsBadge) detailsBadge.innerText = `Status: AO VIVO`;
                 let sessionTitleElem = document.getElementById('sessionTitle');
                 if(sessionTitleElem) {
                     sessionTitleElem.innerText = `${circuitName} - ${sessionName}`;
@@ -339,9 +355,7 @@ f1_dashboard_html = """
                 safeFetch(`https://api.openf1.org/v1/pits?session_key=${sessionKey}`)
             ]);
 
-            let isSimulation = false;
             if (!posData || posData.length === 0 || !locData || locData.length === 0) {
-                isSimulation = true;
                 sessionKey = 9480; 
                 driversData = await safeFetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`);
                 posData = await safeFetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`);
@@ -385,15 +399,15 @@ f1_dashboard_html = """
                     alertBg = "#334155"; alertColor = "#facc15"; showAlert = true;
                 }
 
-                if (showAlert) {
+                if (showAlert && alertBox) {
                     alertBox.style.display = 'block';
                     alertBox.style.background = alertBg;
                     alertBox.style.color = alertColor;
                     alertBox.innerHTML = alertText;
-                } else {
+                } else if (alertBox) {
                     alertBox.style.display = 'none';
                 }
-            } else {
+            } else if (alertBox) {
                 alertBox.style.display = 'none';
             }
 
@@ -475,24 +489,10 @@ f1_dashboard_html = """
             let sortedDrivers = Object.keys(latestPositions).sort((a,b) => latestPositions[a] - latestPositions[b]);
             if (sortedDrivers.length === 0) sortedDrivers = Object.keys(driverMap);
 
-            let gridHtml = `
-                <table class="standings-table">
-                    <thead>
-                        <tr>
-                            <th>Pos</th>
-                            <th>Piloto</th>
-                            <th>Equipe / Escudo</th>
-                            <th>Nº</th>
-                            <th>Tempo da Volta</th>
-                            <th>Gap p/ Líder</th>
-                            <th>Intervalo</th>
-                            <th>Pneus</th>
-                            <th>Volta Atual</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
+            let tbody = document.getElementById('liveTableBody');
+            if (!tbody) return;
 
+            // Atualiza linha por linha sem apagar a tabela (evita totalmente o piscar)
             sortedDrivers.forEach((num, index) => {
                 let dInfo = driverMap[num] || { name: `Piloto #${num}`, team: 'Equipe F1', color: '#facc15' };
                 let pos = latestPositions[num] || (index + 1);
@@ -508,35 +508,57 @@ f1_dashboard_html = """
                 let isFastest = (parseInt(num) === parseInt(fastestLapDriverNum));
                 let fastestBadge = isFastest ? ' <span title="Volta Mais Rápida" style="cursor:help;">⏱️</span>' : '';
                 let winnerBadge = (isRaceFinished && pos === 1) ? ' <span>🏁</span>' : '';
-                
                 let pitBadge = inPitSet[num] ? ' <span class="badge-pit">PIT</span>' : '';
                 let isAbandoned = (maxLapNum > 5 && dLap !== '-' && (maxLapNum - dLap > 5));
                 let outBadge = isAbandoned ? ' <span class="badge-out">OUT LAP</span>' : '';
 
-                gridHtml += `
-                    <tr>
-                        <td><b>P${pos}</b></td>
-                        <td style="border-left: 4px solid ${dInfo.color}; text-align: left; padding-left: 8px;">
-                            ${dInfo.name} ${fastestBadge} ${winnerBadge} ${pitBadge} ${outBadge}
-                        </td>
-                        <td>${teamShield}</td>
-                        <td>#${num}</td>
-                        <td><span style="color:#facc15; font-weight:bold;">${formattedTime}</span></td>
-                        <td><span style="color:#f87171; font-weight:bold;">${gapInfo.gap}</span></td>
-                        <td><span style="color:#38bdf8;">${gapInfo.interval}</span></td>
-                        <td>${tyreBadgeHtml}</td>
-                        <td><b>${dLap}</b></td>
-                    </tr>
-                `;
+                let rowId = `row-driver-${num}`;
+                let row = document.getElementById(rowId);
+
+                if (!row) {
+                    row = document.createElement('tr');
+                    row.id = rowId;
+                    row.innerHTML = `
+                        <td id="cell-pos-${num}"><b>P${pos}</b></td>
+                        <td id="cell-name-${num}" style="border-left: 4px solid ${dInfo.color}; text-align: left; padding-left: 8px;">${dInfo.name}</td>
+                        <td id="cell-team-${num}">${teamShield}</td>
+                        <td id="cell-num-${num}">#${num}</td>
+                        <td id="cell-time-${num}"><span style="color:#facc15; font-weight:bold;">${formattedTime}</span></td>
+                        <td id="cell-gap-${num}"><span style="color:#f87171; font-weight:bold;">${gapInfo.gap}</span></td>
+                        <td id="cell-interval-${num}"><span style="color:#38bdf8;">${gapInfo.interval}</span></td>
+                        <td id="cell-tyre-${num}">${tyreBadgeHtml}</td>
+                        <td id="cell-lap-${num}"><b>${dLap}</b></td>
+                    `;
+                    tbody.appendChild(row);
+                } else {
+                    // Atualiza apenas os textos/conteúdos das células individualmente
+                    let cPos = document.getElementById(`cell-pos-${num}`);
+                    let cName = document.getElementById(`cell-name-${num}`);
+                    let cTeam = document.getElementById(`cell-team-${num}`);
+                    let cNum = document.getElementById(`cell-num-${num}`);
+                    let cTime = document.getElementById(`cell-time-${num}`);
+                    let cGap = document.getElementById(`cell-gap-${num}`);
+                    let cInterval = document.getElementById(`cell-interval-${num}`);
+                    let cTyre = document.getElementById(`cell-tyre-${num}`);
+                    let cLap = document.getElementById(`cell-lap-${num}`);
+
+                    if (cPos) cPos.innerHTML = `<b>P${pos}</b>`;
+                    if (cName) {
+                        cName.style.borderLeftColor = dInfo.color;
+                        cName.innerHTML = `${dInfo.name} ${fastestBadge} ${winnerBadge} ${pitBadge} ${outBadge}`;
+                    }
+                    if (cTeam) cTeam.innerHTML = teamShield;
+                    if (cNum) cNum.innerText = `#${num}`;
+                    if (cTime) cTime.innerHTML = `<span style="color:#facc15; font-weight:bold;">${formattedTime}</span>`;
+                    if (cGap) cGap.innerHTML = `<span style="color:#f87171; font-weight:bold;">${gapInfo.gap}</span>`;
+                    if (cInterval) cInterval.innerHTML = `<span style="color:#38bdf8;">${gapInfo.interval}</span>`;
+                    if (cTyre) cTyre.innerHTML = tyreBadgeHtml;
+                    if (cLap) cLap.innerHTML = `<b>${dLap}</b>`;
+                }
+                
+                // Reordena a linha na tabela suavemente sem recriar
+                tbody.appendChild(row);
             });
-            gridHtml += `</tbody></table>`;
-            
-            // Só atualiza o DOM se o conteúdo mudou para evitar piscar a tela
-            let gridContainer = document.getElementById('liveGridContainer');
-            if (gridContainer && gridHtml !== lastGridHtml) {
-                gridContainer.innerHTML = gridHtml;
-                lastGridHtml = gridHtml;
-            }
 
             let canvas = document.getElementById('trackCanvas');
             if (canvas) {
