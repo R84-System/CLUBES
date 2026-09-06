@@ -1,147 +1,586 @@
-document.addEventListener("DOMContentLoaded", () => {
-    runTracker();
-});
+import streamlit as st
+import requests
+import pandas as pd
 
-setTimeout(runTracker, 400);
+st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
 
-function runTracker() {
-    const canvas = document.getElementById('f1Canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-
-    function resizeCanvas() {
-        canvas.width = canvas.parentElement.clientWidth || 600;
-        canvas.height = canvas.parentElement.clientHeight || 520;
+# Estilos CSS Avançados para Layout Profissional (F1 TV Style & Cards)
+st.markdown(r"""
+<style>
+    .stApp {
+        background-color: #0b0e14;
+        color: #ffffff;
     }
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+    .f1-card {
+        background: linear-gradient(135deg, #121824 0%, #1a2332 100%);
+        border: 1px solid #1f2a3a;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        transition: all 0.3s ease;
+    }
+    .f1-card:hover {
+        border-color: #e10600;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(225,6,0,0.2);
+    }
+    .podium-1 { border-left: 6px solid #ffd700; }
+    .podium-2 { border-left: 6px solid #c0c0c0; }
+    .podium-3 { border-left: 6px solid #cd7f32; }
+    .standard-card { border-left: 6px solid #2563eb; }
+    
+    .badge-pill {
+        background: #1f2a3a;
+        color: #e2e8f0;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .metric-value {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #ffffff;
+    }
+    .metric-label {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
 
-    let trackPoints = [];
-    let driverPositions = {};
-    let driversInfo = {};
+    /* Efeito de Pulso para Indicador Ao Vivo */
+    @keyframes pulse {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .live-dot {
+        height: 10px;
+        width: 10px;
+        background-color: #ef4444;
+        border-radius: 50%;
+        display: inline-block;
+        box-shadow: 0 0 8px #ef4444;
+        animation: pulse 1.5s infinite;
+    }
 
-    const sKey = window.sessionKey;
-    if (!sKey || sKey === "None") return;
+    /* Estilo F1 TV Timing Tower Cards */
+    .timing-container {
+        max-height: 520px;
+        overflow-y: auto;
+        padding-right: 5px;
+    }
+    .timing-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #131822;
+        border: 1px solid #1f2a3a;
+        border-left: 5px solid #2563eb;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-bottom: 6px;
+        font-family: sans-serif;
+    }
+    .timing-pos-1 { border-left-color: #e10600; background: linear-gradient(90deg, #2a1215 0%, #131822 100%); }
+    .timing-pos-2, .timing-pos-3 { border-left-color: #ffd700; }
+    
+    .timing-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .pit-badge {
+        background: #db2777;
+        color: #ffffff;
+        font-size: 0.6rem;
+        font-weight: 800;
+        padding: 3px 6px;
+        border-radius: 4px;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .timing-pos {
+        background: #1f2a3a;
+        color: #ffffff;
+        font-weight: 900;
+        font-size: 0.85rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        min-width: 28px;
+        text-align: center;
+    }
+    .timing-driver {
+        font-weight: 800;
+        color: #ffffff;
+        font-size: 0.9rem;
+        letter-spacing: 0.5px;
+    }
+    .timing-team {
+        color: #94a3b8;
+        font-size: 0.7rem;
+    }
+    .tyre-badge {
+        font-size: 0.65rem;
+        font-weight: 800;
+        padding: 2px 6px;
+        border-radius: 4px;
+        text-align: center;
+        min-width: 18px;
+    }
+    .tyre-soft { background: #da291c; color: #ffffff; }
+    .tyre-medium { background: #ffd100; color: #000000; }
+    .tyre-hard { background: #ffffff; color: #000000; }
+    .tyre-unknown { background: #475569; color: #ffffff; }
 
-    async function initTrackerData() {
-        try {
-            const dRes = await fetch(`https://api.openf1.org/v1/drivers?session_key=${sKey}`);
-            const drivers = await dRes.json();
-            if (drivers && drivers.length > 0) {
-                drivers.forEach(d => {
-                    driversInfo[d.driver_number] = {
-                        acronym: d.name_acronym || d.driver_number,
-                        color: d.team_colour ? `#${d.team_colour}` : '#e10600'
-                    };
-                });
+    .timing-right {
+        text-align: right;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .timing-time {
+        font-weight: 700;
+        color: #f1f5f9;
+        font-size: 0.85rem;
+    }
+
+    /* Mini Setores */
+    .mini-sector {
+        display: inline-block;
+        width: 6px;
+        height: 12px;
+        margin-right: 2px;
+        border-radius: 2px;
+        background: #475569;
+    }
+    .ms-purple { background: #a855f7; }
+    .ms-green { background: #22c55e; }
+    .ms-yellow { background: #eab308; }
+</style>
+""", unsafe_allow_html=True)
+
+# Tradutor de Nomes de Sessão da API para Português Amigável
+def translate_session_name(session_name):
+    if not session_name:
+        return "Sessão ao Vivo"
+    mapping = {
+        "Practice 1": "Treino Livre 1 (TL1)",
+        "Practice 2": "Treino Livre 2 (TL2)",
+        "Practice 3": "Treino Livre 3 (TL3)",
+        "Qualifying": "Classificação (Q1 / Q2 / Q3)",
+        "Sprint": "Corrida Sprint",
+        "Race": "Corrida Principal",
+        "Sprint Shootout": "Sprint Shootout",
+        "Sprint Qualifying": "Classificação Sprint"
+    }
+    return mapping.get(session_name, session_name)
+
+# Mapeamento de Bandeiras por Nacionalidade
+def get_driver_flag(nationality):
+    flags = {
+        "British": "🇬🇧", "Dutch": "🇳🇱", "Monegasque": "🇲🇨", "Spanish": "🇪🇸",
+        "Mexican": "🇲🇽", "Italian": "🇮🇹", "French": "🇫🇷", "German": "🇩🇪",
+        "Australian": "🇦🇺", "Thai": "🇹🇭", "Japanese": "🇯🇵", "Chinese": "🇨🇳",
+        "Canadian": "🇨🇦", "Danish": "🇩🇰", "Finnish": "🇫🇮", "American": "🇺🇸",
+        "Argentine": "🇦🇷", "Brazilian": "🇧🇷", "Swiss": "🇨🇭", "New Zealander": "🇳🇿",
+        "Austrian": "🇦🇹", "Polish": "🇵🇱"
+    }
+    return flags.get(nationality, "🏁")
+
+# URL dos Logotipos Reais das Equipes (Escudos Oficiais)
+def get_team_logo_url(team_name):
+    t = team_name.lower()
+    if "ferrari" in t:
+        return "https://upload.wikimedia.org/wikipedia/commons/e/ec/Scuderia_Ferrari_Logo.svg"
+    elif "red bull" in t:
+        return "https://upload.wikimedia.org/wikipedia/commons/f/f3/Red_Bull_Racing_logo.svg"
+    elif "mercedes" in t:
+        return "https://upload.wikimedia.org/wikipedia/commons/f/fb/Mercedes_AMG_Petronas_F1_Team_Logo.svg"
+    elif "mclaren" in t:
+        return "https://upload.wikimedia.org/wikipedia/commons/6/66/McLaren_Racing_logo.svg"
+    elif "aston martin" in t:
+        return "https://upload.wikimedia.org/wikipedia/commons/7/72/Aston_Martin_Aramco_F1_logo.svg"
+    elif "alpine" in t:
+        return "https://upload.wikimedia.org/wikipedia/commons/7/73/Alpine_F1_Team_Logo.svg"
+    elif "williams" in t:
+        return "https://upload.wikimedia.org/wikipedia/commons/e/e1/Williams_F1_logo_2020.svg"
+    elif "rb" in t or "visa cash app" in t or "racing bulls" in t:
+        return "https://upload.wikimedia.org/wikipedia/commons/c/c2/Visa_Cash_App_RB_Logo.svg"
+    elif "sauber" in t or "kick" in t or "stake" in t:
+        return "https://upload.wikimedia.org/wikipedia/commons/4/4b/Stake_F1_Team_Kick_Sauber_logo.svg"
+    elif "haas" in t:
+        return "https://upload.wikimedia.org/wikipedia/commons/d/d4/Haas_F1_Team_Logo.svg"
+    else:
+        return "https://upload.wikimedia.org/wikipedia/commons/3/33/F1.svg"
+
+# Menu Lateral de Navegação
+st.sidebar.title("🏁 F1 Hub Pro")
+menu = st.sidebar.radio(
+    "Navegação",
+    ["🏎️ Telemetria ao Vivo", "🏆 Classificação do Campeonato", "📅 Próximos GPs (Calendário)"]
+)
+
+if menu == "🏎️ Telemetria ao Vivo":
+    @st.cache_data(ttl=15)
+    def get_latest_session():
+        try:
+            res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest")
+            return res.json()
+        except:
+            return []
+
+    data = get_latest_session()
+
+    if data and len(data) > 0:
+        latest_session = data[0]
+        session_key = latest_session.get("session_key")
+        circuit_name = latest_session.get('circuit_short_name', 'F1')
+        year = latest_session.get('year', '')
+        raw_session_name = latest_session.get('session_name', '')
+        session_title = translate_session_name(raw_session_name)
+        
+        st.sidebar.success(f"Sessão: {session_title}\n\n📍 {circuit_name} ({year})")
+    else:
+        session_key = None
+        session_title = "Aguardando Sessão"
+        circuit_name = "Circuito F1"
+        year = ""
+        st.sidebar.warning("Nenhuma sessão ao vivo encontrada.")
+
+    # Banner Superior Dinâmico indicando o status atual ao vivo
+    banner_html = f"""
+    <div style="display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #121824 0%, #1a2332 100%); border: 1px solid #1f2a3a; border-left: 5px solid #e10600; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="live-dot"></span>
+            <div>
+                <span style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; display: block;">Sessão Ativa na Pista</span>
+                <span style="font-size: 1.1rem; font-weight: 900; color: #ffffff; letter-spacing: 0.5px;">{session_title}</span>
+            </div>
+        </div>
+        <div style="text-align: right;">
+            <span style="font-size: 0.8rem; color: #38bdf8; font-weight: 700; background: #1f2a3a; padding: 4px 10px; border-radius: 6px;">📍 {circuit_name} — {year}</span>
+        </div>
+    </div>
+    """
+    st.markdown(banner_html, unsafe_allow_html=True)
+
+    col1, col2 = st.columns([1.4, 1.6])
+
+    with col1:
+        st.subheader("Circuito em Tempo Real")
+        try:
+            with open("static/tracker.js", "r", encoding="utf-8") as f:
+                js_code = f.read()
+        except FileNotFoundError:
+            js_code = "// tracker.js não encontrado"
+
+        track_html = f"""
+        <div class="track-container" style="position:relative; width:100%; height:520px; background:#0b0e14; border-radius:12px; border:1px solid #1f2a3a; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
+            <canvas id="f1Canvas" style="width:100%; height:100%;"></canvas>
+        </div>
+        <script>
+            window.sessionKey = "{session_key}";
+            {js_code}
+        </script>
+        """
+        st.components.v1.html(track_html, height=540)
+
+    with col2:
+        st.subheader("Torre de Tempos")
+        
+        modo_tempo = st.radio(
+            "Visualizar diferença:",
+            ["Intervalo (Carro da Frente)", "Diferença para o Líder (Gap)"],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+        is_interval = (modo_tempo == "Intervalo (Carro da Frente)")
+
+        if session_key:
+            try:
+                drivers_res = requests.get(f"https://api.openf1.org/v1/drivers?session_key={session_key}").json()
+                stints_res = requests.get(f"https://api.openf1.org/v1/stints?session_key={session_key}").json()
+                intervals_res = requests.get(f"https://api.openf1.org/v1/intervals?session_key={session_key}").json()
+                positions_res = requests.get(f"https://api.openf1.org/v1/position?session_key={session_key}").json()
+                laps_res = requests.get(f"https://api.openf1.org/v1/laps?session_key={session_key}").json()
+                pits_res = requests.get(f"https://api.openf1.org/v1/pits?session_key={session_key}").json()
                 
-                // Pega o traçado da pista usando o primeiro piloto como referência geométrica
-                const sample = drivers[0].driver_number;
-                const lRes = await fetch(`https://api.openf1.org/v1/location?session_key=${sKey}&driver_number=${sample}`);
-                const locs = await lRes.json();
-                if (locs && locs.length > 0) {
-                    locs.sort((a, b) => new Date(a.date) - new Date(b.date));
-                    trackPoints = locs.filter(p => p.x !== 0 && p.y !== 0);
-                }
-            }
-        } catch (err) {
-            console.error("Erro ao carregar dados do circuito:", err);
-        }
-    }
+                in_pit_drivers = set()
+                if pits_res and isinstance(pits_res, list):
+                    for p in pits_res:
+                        if p.get("pit_duration") is None:
+                            in_pit_drivers.add(p.get("driver_number"))
 
-    async function fetchLivePositions() {
-        try {
-            // Busca as posições mais recentes de todos os carros em tempo real
-            const res = await fetch(`https://api.openf1.org/v1/location?session_key=${sKey}`);
-            const data = await res.json();
-            if (data && data.length > 0) {
-                data.sort((a, b) => new Date(a.date) - new Date(b.date));
-                const latest = {};
-                data.forEach(p => {
-                    if (p.x !== 0 && p.y !== 0) {
-                        latest[p.driver_number] = { x: p.x, y: p.y };
-                    }
-                });
-                driverPositions = latest;
-            }
-        } catch (err) {
-            console.error("Erro ao buscar posições ao vivo:", err);
-        }
-    }
+                current_lap = 1
+                total_laps = 57
+                if laps_res and isinstance(laps_res, list):
+                    df_laps = pd.DataFrame(laps_res)
+                    if not df_laps.empty and "lap_number" in df_laps.columns:
+                        current_lap = int(df_laps["lap_number"].max())
+                
+                if "Race" in raw_session_name:
+                    if current_lap == 1:
+                        st.markdown("""<div style="background: linear-gradient(90deg, #b91c1c, #ef4444); color: white; padding: 6px 12px; border-radius: 6px; font-weight: 800; text-align: center; margin-bottom: 8px; font-size: 0.8rem;">🔴🔴🔴🔴🔴 LARGADA AUTORIZADA — VOLTA 1</div>""", unsafe_allow_html=True)
+                    elif current_lap >= total_laps:
+                        st.markdown("""<div style="background: linear-gradient(90deg, #1e293b, #334155); color: white; padding: 6px 12px; border-radius: 6px; font-weight: 800; text-align: center; margin-bottom: 8px; font-size: 0.8rem; border: 1px dashed #ffffff;">🏁 BANDEIRA QUADRICULADA — FIM DE CORRIDA! 🏁</div>""", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""<div style="display: flex; justify-content: space-between; background: #121824; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #1f2a3a;"><span style="font-size: 0.8rem; color: #94a3b8;">Total de Voltas do GP: <b>{total_laps}</b></span><span style="font-size: 0.85rem; font-weight: 800; color: #38bdf8;">🟢 Volta Atual: {current_lap} / {total_laps}</span></div>""", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""<div style="display: flex; justify-content: space-between; background: #121824; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #1f2a3a;"><span style="font-size: 0.8rem; color: #94a3b8;">Sessão: <b>{session_title}</b></span><span style="font-size: 0.85rem; font-weight: 800; color: #38bdf8;">⏱️ Voltas Registradas: {current_lap}</span></div>""", unsafe_allow_html=True)
 
-    function render() {
-        ctx.fillStyle = '#0b0e14';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                if drivers_res and isinstance(drivers_res, list):
+                    tires_map = {}
+                    if stints_res and isinstance(stints_res, list):
+                        for s in stints_res:
+                            d_num = s.get("driver_number")
+                            if d_num:
+                                tires_map[d_num] = s.get("compound", "N/A")
+                    
+                    pos_map = {}
+                    if positions_res and isinstance(positions_res, list):
+                        df_pos = pd.DataFrame(positions_res)
+                        if not df_pos.empty and "driver_number" in df_pos.columns and "position" in df_pos.columns:
+                            df_pos = df_pos.sort_values("date")
+                            for _, row in df_pos.drop_duplicates(subset=["driver_number"], keep="last").iterrows():
+                                pos_map[row["driver_number"]] = row["position"]
 
-        ctx.strokeStyle = '#151d2a';
-        ctx.lineWidth = 1;
-        const gridSize = 40;
-        for (let x = 0; x < canvas.width; x += gridSize) {
-            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-        }
-        for (let y = 0; y < canvas.height; y += gridSize) {
-            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-        }
+                    interval_map = {}
+                    gap_map = {}
+                    if intervals_res and isinstance(intervals_res, list):
+                        df_int = pd.DataFrame(intervals_res)
+                        if not df_int.empty:
+                            df_int = df_int.sort_values("date")
+                            for _, row in df_int.drop_duplicates(subset=["driver_number"], keep="last").iterrows():
+                                d_num = row.get("driver_number")
+                                inter = row.get('interval')
+                                gap = row.get('gap_to_leader')
+                                if d_num:
+                                    interval_map[d_num] = f"+{inter}s" if inter is not None else "-"
+                                    gap_map[d_num] = f"+{gap}s" if gap is not None else "-"
+                    
+                    best_lap_map = {}
+                    overall_fastest_driver = None
+                    if laps_res and isinstance(laps_res, list):
+                        df_laps = pd.DataFrame(laps_res)
+                        if not df_laps.empty and "lap_duration" in df_laps.columns and "driver_number" in df_laps.columns:
+                            df_valid = df_laps.dropna(subset=["lap_duration"])
+                            if not df_valid.empty:
+                                min_row = df_valid.loc[df_valid["lap_duration"].idxmin()]
+                                overall_fastest_driver = min_row["driver_number"]
+                                
+                                for d_num, group in df_valid.groupby("driver_number"):
+                                    min_duration = group["lap_duration"].min()
+                                    mins = int(min_duration // 60)
+                                    remaining = min_duration % 60
+                                    time_str = f"{mins}:{remaining:06.3f}" if mins > 0 else f"{remaining:06.3f}"
+                                    best_lap_map[d_num] = time_str
 
-        if (trackPoints.length === 0) {
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '13px sans-serif';
-            ctx.fillText('Aguardando sinal da sessão ao vivo...', 20, 40);
-        } else {
-            let minX = Math.min(...trackPoints.map(p => p.x));
-            let maxX = Math.max(...trackPoints.map(p => p.x));
-            let minY = Math.min(...trackPoints.map(p => p.y));
-            let maxY = Math.max(...trackPoints.map(p => p.y));
+                    table_data = []
+                    for driver in drivers_res:
+                        d_num = driver.get("driver_number")
+                        acronym = driver.get("name_acronym", str(d_num))
+                        team = driver.get("team_name", "Desconhecida")
+                        position = pos_map.get(d_num, 99)
+                        compound = tires_map.get(d_num, "N/A")
+                        
+                        comp_upper = compound.upper()
+                        if "SOFT" in comp_upper:
+                            tyre_letter, tyre_class = "S", "tyre-soft"
+                        elif "MEDIUM" in comp_upper:
+                            tyre_letter, tyre_class = "M", "tyre-medium"
+                        elif "HARD" in comp_upper:
+                            tyre_letter, tyre_class = "H", "tyre-hard"
+                        else:
+                            tyre_letter, tyre_class = "-", "tyre-unknown"
+                        
+                        table_data.append({
+                            "Pos": position,
+                            "Nº": d_num,
+                            "Piloto": acronym,
+                            "Equipe": team,
+                            "Logo": get_team_logo_url(team),
+                            "Pneu": tyre_letter,
+                            "TyreClass": tyre_class,
+                            "Intervalo": interval_map.get(d_num, "LEADER" if position == 1 else "-"),
+                            "Gap": gap_map.get(d_num, "LEADER" if position == 1 else "-"),
+                            "Melhor Volta": best_lap_map.get(d_num, "-"),
+                            "InPit": d_num in in_pit_drivers
+                        })
+                    
+                    df_display = pd.DataFrame(table_data)
+                    df_display = df_display.sort_values(by="Pos").reset_index(drop=True)
+                    
+                    st.markdown('<div class="timing-container">', unsafe_allow_html=True)
+                    for _, row in df_display.iterrows():
+                        pos = row["Pos"]
+                        d_num = row["Nº"]
+                        pos_class = "timing-pos-1" if pos == 1 else ("timing-pos-2" if pos == 2 or pos == 3 else "")
+                        pilot = row["Piloto"]
+                        team = row["Equipe"]
+                        logo_url = row["Logo"]
+                        tyre = row["Pneu"]
+                        t_class = row["TyreClass"]
+                        lap_time = row["Melhor Volta"]
+                        in_pit = row["InPit"]
+                        
+                        time_display = row["Intervalo"] if is_interval else row["Gap"]
+                        if pos == 1 and "Race" in raw_session_name:
+                            time_display = "LEADER"
 
-            let scaleX = (canvas.width - 80) / (maxX - minX || 1);
-            let scaleY = (canvas.height - 80) / (maxY - minY || 1);
-            let scale = Math.min(scaleX, scaleY);
+                        is_fastest_overall = (d_num == overall_fastest_driver)
+                        time_prefix = "⏱️ " if is_fastest_overall else ""
+                        time_style = "color: #a855f7; font-weight: 800;" if is_fastest_overall else "color: #f1f5f9;"
 
-            let offsetX = 40 - minX * scale + (canvas.width - 80 - (maxX - minX) * scale) / 2;
-            let offsetY = 40 - minY * scale + (canvas.height - 80 - (maxY - minY) * scale) / 2;
+                        ms_html = '<span class="mini-sector ms-green"></span><span class="mini-sector ms-purple"></span><span class="mini-sector ms-green"></span>'
+                        pit_html = '<div class="pit-badge">PIT</div>' if in_pit else ''
 
-            ctx.shadowBlur = 8;
-            ctx.shadowColor = '#1e3a8a';
-            ctx.strokeStyle = '#2563eb';
-            ctx.lineWidth = 4;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            ctx.beginPath();
-            trackPoints.forEach((p, idx) => {
-                let px = p.x * scale + offsetX;
-                let py = p.y * scale + offsetY;
-                if (idx === 0) ctx.moveTo(px, py);
-                else ctx.lineTo(px, py);
-            });
-            ctx.stroke();
-            ctx.shadowBlur = 0;
+                        row_html = f'''
+                        <div class="timing-row {pos_class}">
+                            <div class="timing-left">
+                                {pit_html}
+                                <div style="display: flex; flex-direction: column; align-items: center;">
+                                    <div class="timing-pos">{pos}</div>
+                                    <div style="font-size: 0.6rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <img src="{logo_url}" width="22" height="22" style="object-fit: contain;" />
+                                    <div>
+                                        <div style="display: flex; align-items: center;"><span class="timing-driver">{pilot}</span></div>
+                                        <div class="timing-team">{team}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">{ms_html}</div>
+                            <div class="timing-right">
+                                <div style="text-align: right;">
+                                    <div class="timing-time" style="{time_style}">{time_prefix}{lap_time}</div>
+                                </div>
+                                <span class="tyre-badge {t_class}">{tyre}</span>
+                            </div>
+                        </div>
+                        '''
+                        st.markdown(row_html, unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                else:
+                    st.info("Aguardando dados dos pilotos...")
+            except Exception as e:
+                st.error(f"Erro ao processar telemetria: {e}")
+        else:
+            st.info("Conecte a uma sessão válida.")
 
-            for (let num in driverPositions) {
-                let pos = driverPositions[num];
-                let cx = pos.x * scale + offsetX;
-                let cy = pos.y * scale + offsetY;
-                let info = driversInfo[num] || { acronym: `#${num}`, color: '#e10600' };
+elif menu == "🏆 Classificação do Campeonato":
+    st.title("🏆 Classificação do Campeonato Mundial")
+    
+    tab1, tab2 = st.tabs(["Pilotos", "Construtores"])
+    
+    with tab1:
+        st.subheader("Mundial de Pilotos")
+        try:
+            res = requests.get("https://api.jolpi.ca/ergast/f1/current/driverStandings.json")
+            data = res.json()
+            standings_list = data["MRData"]["StandingsTable"]["StandingsLists"][0]["DriverStandings"]
+            
+            for item in standings_list:
+                pos = int(item["position"])
+                card_class = f"podium-{pos}" if pos <= 3 else "standard-card"
+                driver_name = f"{item['Driver']['givenName']} {item['Driver']['familyName']}"
+                nationality = item['Driver'].get('nationality', '')
+                flag = get_driver_flag(nationality)
+                team_name = item["Constructors"][0]["name"]
+                logo_url = get_team_logo_url(team_name)
+                points = item["points"]
+                wins = item["wins"]
+                
+                card_html = f'''
+                <div class="f1-card {card_class}">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <span style="font-size: 1.5rem; font-weight: 900; color: {"#ffd700" if pos==1 else "#c0c0c0" if pos==2 else "#cd7f32" if pos==3 else "#ffffff"};">#{pos}</span>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <img src="{logo_url}" width="32" height="32" style="object-fit: contain;" />
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{flag} {driver_name}</h3>
+                                    <p style="margin: 2px 0 0 0; font-size: 0.85rem; color: #94a3b8;">{team_name}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="text-align: right; display: flex; gap: 15px; align-items: center;">
+                            <div><div class="metric-label">Vitórias</div><div style="font-weight: 700; color: #e2e8f0;">{wins}</div></div>
+                            <div style="background: #1f2a3a; padding: 8px 16px; border-radius: 8px; text-align: center;">
+                                <div class="metric-label">Pontos</div>
+                                <div class="metric-value" style="color: #e10600;">{points}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                '''
+                st.markdown(card_html, unsafe_allow_html=True)
+        except Exception:
+            st.info("Carregando classificação de pilotos...")
+            
+    with tab2:
+        st.subheader("Mundial de Construtores")
+        try:
+            res = requests.get("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json")
+            data = res.json()
+            standings_list = data["MRData"]["StandingsTable"]["StandingsLists"][0]["ConstructorStandings"]
+            
+            for item in standings_list:
+                pos = int(item["position"])
+                card_class = f"podium-{pos}" if pos <= 3 else "standard-card"
+                team_name = item["Constructor"]["name"]
+                logo_url = get_team_logo_url(team_name)
+                points = item["points"]
+                wins = item["wins"]
+                
+                card_html = f'''
+                <div class="f1-card {card_class}">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <span style="font-size: 1.5rem; font-weight: 900; color: {"#ffd700" if pos==1 else "#c0c0c0" if pos==2 else "#cd7f32" if pos==3 else "#ffffff"};">#{pos}</span>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <img src="{logo_url}" width="36" height="36" style="object-fit: contain;" />
+                                <div>
+                                    <h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{team_name}</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="text-align: right; display: flex; gap: 15px; align-items: center;">
+                            <div><div class="metric-label">Vitórias</div><div style="font-weight: 700; color: #e2e8f0;">{wins}</div></div>
+                            <div style="background: #1f2a3a; padding: 8px 16px; border-radius: 8px; text-align: center;">
+                                <div class="metric-label">Pontos</div>
+                                <div class="metric-value" style="color: #e10600;">{points}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                '''
+                st.markdown(card_html, unsafe_allow_html=True)
+        except Exception:
+            st.info("Carregando classificação de construtores...")
 
-                ctx.fillStyle = info.color;
-                ctx.beginPath();
-                ctx.arc(cx, cy, 6, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 1.5;
-                ctx.stroke();
-
-                ctx.fillStyle = '#ffffff';
-                ctx.font = 'bold 10px sans-serif';
-                ctx.fillText(info.acronym, cx + 9, cy + 4);
-            }
-        }
-
-        requestAnimationFrame(render);
-    }
-
-    initTrackerData();
-    fetchLivePositions();
-    setInterval(fetchLivePositions, 3000); // Atualiza as posições a cada 3 segundos
-    render();
-}
+elif menu == "📅 Próximos GPs (Calendário)":
+    st.title("📅 Calendário de Grandes Prêmios")
+    try:
+        res = requests.get("https://api.jolpi.ca/ergast/f1/current.json")
+        data = res.json()
+        races = data["MRData"]["RaceTable"]["Races"]
+        
+        cols = st.columns(2)
+        for idx, race in enumerate(races):
+            round_num = race["round"]
+            race_name = race["raceName"]
+            circuit = race["Circuit"]["circuitName"]
+            country = race["Circuit"]["Location"]["country"]
+            date = race["date"]
+            
+            card_html = f'<div class="f1-card standard-card"><div style="display: flex; justify-content: space-between; align-items: flex-start;"><div><span class="badge-pill">Etapa {round_num}</span><h3 style="margin: 8px 0 4px 0; font-size: 1.05rem; color: #ffffff;">🏁 {race_name}</h3><p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">📍 {circuit} ({country})</p></div><div style="text-align: right;"><div class="metric-label">Data</div><div style="font-weight: 700; color: #e2e8f0; font-size: 0.95rem;">📅 {date}</div></div></div></div>'
+            cols[idx % 2].markdown(card_html, unsafe_allow_html=True)
+            
+    except Exception:
+        st.info("Carregando calendário de GPs...")
