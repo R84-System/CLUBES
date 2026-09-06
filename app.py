@@ -2,13 +2,13 @@ import streamlit as st
 
 # 1. Configuração da Página para Largura Total
 st.set_page_config(
-    page_title="F1 Pro Dashboard",
+    page_title="F1 Live Telemetry & Track Map",
     page_icon="🏎️",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
-# 2. Ocultação do cabeçalho, rodapé e ajuste de margens nativas do Streamlit
+# 2. Ocultação do cabeçalho, rodapé e ajuste de margens nativas
 st.markdown(
     """
     <style>
@@ -18,20 +18,16 @@ st.markdown(
             padding-left: 0.8rem !important;
             padding-right: 0.8rem !important;
         }
-        header {visibility: hidden;} /* Oculta o cabeçalho padrão */
-        footer {visibility: hidden;} /* Oculta o rodapé padrão */
-        
-        /* Ajuste do fundo geral da aplicação */
-        .stApp {
-            background-color: #0e1117;
-        }
+        header {visibility: hidden;}
+        footer {visibility: hidden;}
+        .stApp { background-color: #0e1117; }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-# 3. Painel F1 construído com HTML/CSS customizado e integrado via iframe
-f1_dashboard_html = """
+# 3. Código HTML/JS com Pista SVG Animada e Tempo Real
+f1_live_html = """
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -44,7 +40,6 @@ f1_dashboard_html = """
             margin: 0;
             padding: 0;
         }
-        /* Cabeçalho Estilo F1 */
         .f1-header {
             background: linear-gradient(90deg, #e10600 0%, #15151e 70%);
             padding: 12px 20px;
@@ -56,7 +51,7 @@ f1_dashboard_html = """
             margin-bottom: 12px;
         }
         .f1-logo {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 900;
             font-style: italic;
             letter-spacing: 2px;
@@ -69,63 +64,42 @@ f1_dashboard_html = """
             border-radius: 4px;
             margin-left: 4px;
         }
-        .live-badge {
-            background: #22c55e;
-            color: #fff;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 11px;
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid #22c55e;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
             font-weight: bold;
-            animation: pulse 2s infinite;
+            color: #4ade80;
         }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+            animation: pulse-ring 1.5s infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
         }
 
-        /* Barra de Filtros e Controles Horizontal */
-        .controls-bar {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            background: #161b22;
-            padding: 12px 15px;
-            border-radius: 8px;
-            border-top: 3px solid #e10600;
-            align-items: flex-end;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-        }
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            font-size: 11px;
-            color: #8b949e;
-            text-transform: uppercase;
-            font-weight: bold;
-        }
-        .control-group select, .control-group input {
-            background: #0d1117;
-            color: #fff;
-            border: 1px solid #30363d;
-            padding: 7px 10px;
-            border-radius: 6px;
-            margin-top: 4px;
-            font-size: 13px;
-            outline: none;
-        }
-        .control-group select:focus, .control-group input:focus {
-            border-color: #e10600;
-        }
-
-        /* Grid de Cards */
         .grid-container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            grid-template-columns: 1.2fr 1fr;
             gap: 15px;
             margin-bottom: 15px;
         }
+        @media (max-width: 900px) {
+            .grid-container { grid-template-columns: 1fr; }
+        }
+
         .card {
             background: #161b22;
             border: 1px solid #30363d;
@@ -134,143 +108,278 @@ f1_dashboard_html = """
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
         .card-title {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: bold;
             color: #f0f6fc;
             margin-bottom: 10px;
             border-bottom: 1px solid #30363d;
-            padding-bottom: 8px;
+            padding-bottom: 6px;
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            gap: 8px;
         }
 
-        /* Tabelas Estilizadas */
+        /* Container do Mapa da Pista */
+        .track-container {
+            position: relative;
+            background: #0d1117;
+            border-radius: 6px;
+            border: 1px solid #21262d;
+            height: 320px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        
+        /* Legenda dos carros */
+        .track-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+            font-size: 11px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: #0d1117;
+            padding: 3px 8px;
+            border-radius: 4px;
+            border: 1px solid #30363d;
+        }
+        .legend-color {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        /* Tabelas */
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 13px;
+            font-size: 12px;
         }
         th, td {
-            padding: 7px 8px;
+            padding: 6px 8px;
             text-align: left;
             border-bottom: 1px solid #21262d;
         }
-        th {
-            color: #8b949e;
-            font-weight: 600;
-            background: #0d1117;
-        }
-        tr:hover {
-            background: #1f242c;
-        }
+        th { color: #8b949e; background: #0d1117; font-weight: 600; }
+        tr:hover { background: #1f242c; }
         .pos-1 { color: #facc15; font-weight: bold; }
         .pos-2 { color: #e5e7eb; font-weight: bold; }
         .pos-3 { color: #fb923c; font-weight: bold; }
-        
-        .telemetry-box {
-            background: #0d1117;
-            border: 1px solid #30363d;
-            padding: 10px;
-            border-radius: 6px;
+
+        /* Telemetria Ao Vivo */
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
             margin-top: 8px;
         }
-        .metric-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 13px;
-            margin-bottom: 6px;
+        .tele-box {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
         }
-        .metric-label { color: #8b949e; }
-        .metric-value { font-weight: bold; color: #58a6ff; }
+        .tele-label { font-size: 10px; color: #8b949e; text-transform: uppercase; }
+        .tele-val { font-size: 16px; font-weight: bold; color: #58a6ff; margin-top: 2px; }
     </style>
 </head>
 <body>
 
-    <!-- Header F1 -->
+    <!-- Header com Relógio Ativo -->
     <div class="f1-header">
-        <div class="f1-logo">FORMULA 1 <span>DASHBOARD</span></div>
-        <div><span class="live-badge">TEMPORADA ATIVA</span></div>
-    </div>
-
-    <!-- Barra de Controles Superior -->
-    <div class="controls-bar">
-        <div class="control-group">
-            <label>Temporada</label>
-            <select>
-                <option>2026</option>
-                <option>2025</option>
-                <option>2024</option>
-            </select>
-        </div>
-        <div class="control-group">
-            <label>Grande Prêmio</label>
-            <select>
-                <option>Round 08: GP de Mônaco 🇲🇨</option>
-                <option>Round 07: GP de Ímola 🇮🇹</option>
-                <option>Round 06: GP de Miami 🇺🇸</option>
-            </select>
-        </div>
-        <div class="control-group">
-            <label>Sessão</label>
-            <select>
-                <option>Corrida (Race)</option>
-                <option>Qualificação (Quali)</option>
-                <option>Treino Livre (FP3)</option>
-            </select>
-        </div>
-        <div class="control-group">
-            <label>Buscar Piloto / Equipe</label>
-            <input type="text" placeholder="Ex: Verstappen, Ferrari...">
+        <div class="f1-logo">FORMULA 1 <span>LIVE TRACK</span></div>
+        <div class="live-indicator">
+            <div class="pulse-dot"></div>
+            SESSÃO AO VIVO <span id="live-timer" style="margin-left: 5px; font-family: monospace;">00:00:00</span>
         </div>
     </div>
 
-    <!-- Layout em Grid / Blocos -->
     <div class="grid-container">
-        
-        <!-- Card 1: Tabela de Pilotos -->
+        <!-- Coluna Esquerda: Mini-mapa do Circuito com pontos correndo -->
         <div class="card">
-            <div class="card-title">🏆 Mundial de Pilotos (Top 5)</div>
-            <table>
-                <tr><th>Pos</th><th>Piloto</th><th>Equipe</th><th>Pts</th></tr>
-                <tr><td class="pos-1">1</td><td>M. Verstappen</td><td>Red Bull</td><td>165</td></tr>
-                <tr><td class="pos-2">2</td><td>L. Hamilton</td><td>Ferrari</td><td>142</td></tr>
-                <tr><td class="pos-3">3</td><td>C. Leclerc</td><td>Ferrari</td><td>138</td></tr>
-                <tr><td>4</td><td>L. Norris</td><td>McLaren</td><td>125</td></tr>
-                <tr><td>5</td><td>O. Piastri</td><td>McLaren</td><td>110</td></tr>
-            </table>
+            <div class="card-title">
+                <span>🗺️ Mapa do Circuito (Telemetria em Tempo Real)</span>
+                <span style="font-size: 11px; color: #8b949e;" id="lap-counter">Volta 48 / 78</span>
+            </div>
+            
+            <div class="track-container">
+                <!-- Traçado SVG do Circuito -->
+                <svg width="100%" height="100%" viewBox="0 0 500 300" style="position: absolute;">
+                    <!-- Sombra e Linha da Pista -->
+                    <path id="race-track" d="M 60 150 C 60 60, 140 40, 220 50 C 320 60, 420 80, 430 150 C 440 220, 360 260, 260 260 C 160 260, 100 240, 70 200 Z" 
+                          fill="none" stroke="#21262d" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M 60 150 C 60 60, 140 40, 220 50 C 320 60, 420 80, 430 150 C 440 220, 360 260, 260 260 C 160 260, 100 240, 70 200 Z" 
+                          fill="none" stroke="#30363d" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+
+                <!-- Pontos dos Carros injetados via JavaScript -->
+                <div id="cars-container" style="position: absolute; width: 100%; height: 100%; pointer-events: none;"></div>
+            </div>
+
+            <!-- Legenda com Cores das Equipes -->
+            <div class="track-legend" id="track-legend"></div>
         </div>
 
-        <!-- Card 2: Tabela de Construtores -->
+        <!-- Coluna Direita: Tabela de Posições e Telemetria do Líder -->
         <div class="card">
-            <div class="card-title">🏎️ Mundial de Construtores</div>
+            <div class="card-title">
+                <span>📊 Classificação & Intervalos</span>
+                <span style="font-size: 11px; color: #22c55e;">● Sincronizado</span>
+            </div>
             <table>
-                <tr><th>Pos</th><th>Construtor</th><th>Pts</th></tr>
-                <tr><td class="pos-1">1</td><td>Scuderia Ferrari</td><td>280</td></tr>
-                <tr><td class="pos-2">2</td><td>Red Bull Racing</td><td>245</td></tr>
-                <tr><td class="pos-3">3</td><td>McLaren F1 Team</td><td>235</td></tr>
-                <tr><td>4</td><td>Mercedes AMG F1</td><td>180</td></tr>
-                <tr><td>5</td><td>Aston Martin Aramco</td><td>75</td></tr>
+                <thead>
+                    <tr><th>Pos</th><th>Piloto</th><th>Equipe</th><th>Gap</th><th>Pneu</th></tr>
+                </thead>
+                <tbody id="standings-tbody">
+                    <!-- Preenchido por JS -->
+                </tbody>
             </table>
-        </div>
 
-        <!-- Card 3: Telemetria / Voltas Rápidas -->
-        <div class="card">
-            <div class="card-title">⚡ Volta Mais Rápida da Pista</div>
-            <div class="telemetry-box">
-                <div class="metric-row"><span class="metric-label">Piloto:</span><span class="metric-value">L. Hamilton</span></div>
-                <div class="metric-row"><span class="metric-label">Equipe:</span><span class="metric-value">Ferrari</span></div>
-                <div class="metric-row"><span class="metric-label">Tempo:</span><span class="metric-value" style="color: #facc15;">1:12.984</span></div>
-                <div class="metric-row"><span class="metric-label">Velocidade Média:</span><span class="metric-value">168.4 km/h</span></div>
-                <div class="metric-row"><span class="metric-label">Volta:</span><span class="metric-value">64 / 78</span></div>
+            <div style="margin-top: 14px;">
+                <div class="card-title" style="margin-bottom: 6px; font-size: 12px;">⚡ Telemetria do Líder (Verstappen)</div>
+                <div class="telemetry-grid">
+                    <div class="tele-box">
+                        <div class="tele-label">Velocidade</div>
+                        <div class="tele-val" id="tele-speed">314 km/h</div>
+                    </div>
+                    <div class="tele-box">
+                        <div class="tele-label">Marcha</div>
+                        <div class="tele-val" id="tele-gear">7</div>
+                    </div>
+                    <div class="tele-box">
+                        <div class="tele-label">RPM do Motor</div>
+                        <div class="tele-val" id="tele-rpm">11,450</div>
+                    </div>
+                    <div class="tele-box">
+                        <div class="tele-label">Acelerador</div>
+                        <div class="tele-val" id="tele-throttle">100%</div>
+                    </div>
+                </div>
             </div>
         </div>
-
     </div>
 
+    <script>
+        // 1. Cronômetro da Sessão em Tempo Real
+        let secondsElapsed = 3640; 
+        setInterval(() => {
+            secondsElapsed++;
+            let hrs = Math.floor(secondsElapsed / 3600).toString().padStart(2, '0');
+            let mins = Math.floor((secondsElapsed % 3600) / 60).toString().padStart(2, '0');
+            let secs = (secondsElapsed % 60).toString().padStart(2, '0');
+            document.getElementById('live-timer').innerText = `${hrs}:${mins}:${secs}`;
+        }, 1000);
+
+        // 2. Dados dos Carros (Posições, Cores e Velocidades na Pista)
+        const cars = [
+            { id: 1, name: "M. Verstappen", code: "VER", team: "Red Bull", color: "#3671C6", progress: 0.18, speed: 0.0013, tire: "🟡 M", gap: "LEADER", pos: 1 },
+            { id: 2, name: "L. Hamilton", code: "HAM", team: "Ferrari", color: "#E8002D", progress: 0.14, speed: 0.00125, tire: "🟡 M", gap: "+2.1s", pos: 2 },
+            { id: 3, name: "C. Leclerc", code: "LEC", team: "Ferrari", color: "#E8002D", progress: 0.10, speed: 0.00122, tire: "🔴 H", gap: "+3.9s", pos: 3 },
+            { id: 4, name: "L. Norris", code: "NOR", team: "McLaren", color: "#FF8000", progress: 0.07, speed: 0.00118, tire: "🟡 M", gap: "+7.4s", pos: 4 },
+            { id: 5, name: "O. Piastri", code: "PIA", team: "McLaren", color: "#FF8000", progress: 0.04, speed: 0.00115, tire: "⚪ H", gap: "+10.8s", pos: 5 },
+            { id: 6, name: "G. Russell", code: "RUS", team: "Mercedes", color: "#27F4D2", progress: 0.01, speed: 0.00110, tire: "🟡 M", gap: "+13.2s", pos: 6 }
+        ];
+
+        // Montar Legenda
+        const legendContainer = document.getElementById('track-legend');
+        cars.forEach(car => {
+            legendContainer.innerHTML += `
+                <div class="legend-item">
+                    <div class="legend-color" style="background: ${car.color};"></div>
+                    <span><b>${car.code}</b></span>
+                </div>
+            `;
+        });
+
+        // 3. Renderização do Movimento dos Pontos no Circuito SVG
+        const trackPath = document.getElementById('race-track');
+        const pathLength = trackPath.getTotalLength();
+        const carsContainer = document.getElementById('cars-container');
+        const carElements = {};
+
+        cars.forEach(car => {
+            const dot = document.createElement('div');
+            dot.style.position = 'absolute';
+            dot.style.width = '11px';
+            dot.style.height = '11px';
+            dot.style.backgroundColor = car.color;
+            dot.style.borderRadius = '50%';
+            dot.style.border = '2px solid #ffffff';
+            dot.style.transform = 'translate(-50%, -50%)';
+            dot.style.boxShadow = `0 0 8px ${car.color}`;
+            dot.style.zIndex = '10';
+            
+            // Sigla do piloto flutuando ao lado do ponto
+            const label = document.createElement('div');
+            label.innerText = car.code;
+            label.style.position = 'absolute';
+            label.style.fontSize = '9px';
+            label.style.color = '#fff';
+            label.style.fontWeight = 'bold';
+            label.style.transform = 'translate(10px, -10px)';
+            label.style.textShadow = '1px 1px 2px #000';
+            dot.appendChild(label);
+
+            carsContainer.appendChild(dot);
+            carElements[car.id] = dot;
+        });
+
+        // Loop de animação contínua dos pontos ao longo da linha da pista
+        function animateTracks() {
+            cars.forEach(car => {
+                car.progress += car.speed;
+                if (car.progress > 1) car.progress = 0; // Dá a volta completa
+
+                // Pega a coordenada exata (X, Y) baseada no comprimento do traçado SVG
+                const point = trackPath.getPointAtLength(car.progress * pathLength);
+                
+                const xPercent = (point.x / 500) * 100;
+                const yPercent = (point.y / 300) * 100;
+
+                const dot = carElements[car.id];
+                dot.style.left = xPercent + '%';
+                dot.style.top = yPercent + '%';
+            });
+            requestAnimationFrame(animateTracks);
+        }
+        requestAnimationFrame(animateTracks);
+
+        // 4. Atualização dinâmica dos dados da tabela e telemetria (Efeito Tempo Real)
+        setInterval(() => {
+            // Oscilação realista de velocidade e RPM do líder
+            let currentSpeed = Math.floor(312 + Math.random() * 10);
+            let currentRpm = Math.floor(11400 + Math.random() * 250).toLocaleString();
+            document.getElementById('tele-speed').innerText = currentSpeed + ' km/h';
+            document.getElementById('tele-rpm').innerText = currentRpm;
+
+            // Atualiza a tabela de posições em tempo real
+            let tbody = document.getElementById('standings-tbody');
+            let html = '';
+            cars.forEach(car => {
+                let posClass = car.pos === 1 ? 'pos-1' : (car.pos === 2 ? 'pos-2' : (car.pos === 3 ? 'pos-3' : ''));
+                html += `
+                    <tr>
+                        <td class="${posClass}">${car.pos}</td>
+                        <td><b>${car.name}</b></td>
+                        <td>${car.team}</td>
+                        <td style="color: #8b949e;">${car.gap}</td>
+                        <td>${car.tire}</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }, 1500);
+    </script>
 </body>
 </html>
 """
 
-# Renderizando o painel F1 customizado sem margens laterais e preenchendo a tela inteira
-st.components.v1.html(f1_dashboard_html, height=620, scrolling=True)
+# Renderizando no Streamlit sem barra lateral e ocupando a largura total
+st.components.v1.html(f1_live_html, height=520, scrolling=True)
