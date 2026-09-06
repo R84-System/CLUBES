@@ -500,6 +500,5 @@ elif menu == "📅 Próximos GPs (Calendário)":
             card_html = f'<div class="f1-card standard-card"><div style="display: flex; justify-content: space-between; align-items: flex-start;"><div><span class="badge-pill">Etapa {round_num}</span><h3 style="margin: 8px 0 4px 0; font-size: 1.05rem; color: #ffffff;">🏁 {race_name}</h3><p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">📍 {circuit} ({country})</p></div><div style="text-align: right;"><div class="metric-label">Data</div><div style="font-weight: 700; color: #e2e8f0; font-size: 0.95rem;">📅 {date}</div></div></div></div>'
             cols[idx % 2].markdown(card_html, unsafe_allow_html=True)
             
-    // except Exception:
     except Exception:
         st.info("Carregando calendário de GPs...")
