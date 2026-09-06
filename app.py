@@ -51,6 +51,22 @@ st.markdown(r"""
         letter-spacing: 0.5px;
     }
 
+    /* Efeito de Pulso para Indicador Ao Vivo */
+    @keyframes pulse {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .live-dot {
+        height: 10px;
+        width: 10px;
+        background-color: #ef4444;
+        border-radius: 50%;
+        display: inline-block;
+        box-shadow: 0 0 8px #ef4444;
+        animation: pulse 1.5s infinite;
+    }
+
     /* Estilo F1 TV Timing Tower Cards */
     .timing-container {
         max-height: 520px;
@@ -148,6 +164,22 @@ st.markdown(r"""
 </style>
 """, unsafe_allow_html=True)
 
+# Tradutor de Nomes de Sessão da API para Português Amigável
+def translate_session_name(session_name):
+    if not session_name:
+        return "Sessão ao Vivo"
+    mapping = {
+        "Practice 1": "Treino Livre 1 (TL1)",
+        "Practice 2": "Treino Livre 2 (TL2)",
+        "Practice 3": "Treino Livre 3 (TL3)",
+        "Qualifying": "Classificação (Q1 / Q2 / Q3)",
+        "Sprint": "Corrida Sprint",
+        "Race": "Corrida Principal",
+        "Sprint Shootout": "Sprint Shootout",
+        "Sprint Qualifying": "Classificação Sprint"
+    }
+    return mapping.get(session_name, session_name)
+
 # Mapeamento de Bandeiras por Nacionalidade
 def get_driver_flag(nationality):
     flags = {
@@ -180,8 +212,6 @@ menu = st.sidebar.radio(
 )
 
 if menu == "🏎️ Telemetria ao Vivo":
-    st.markdown("<h4 style='color: #f1f5f9; margin-bottom: 15px; font-weight: 700;'>F1 Telemetria</h4>", unsafe_allow_html=True)
-
     @st.cache_data(ttl=15)
     def get_latest_session():
         try:
@@ -197,10 +227,33 @@ if menu == "🏎️ Telemetria ao Vivo":
         session_key = latest_session.get("session_key")
         circuit_name = latest_session.get('circuit_short_name', 'F1')
         year = latest_session.get('year', '')
-        st.sidebar.success(f"Sessão Ativa: {circuit_name} ({year})")
+        raw_session_name = latest_session.get('session_name', '')
+        session_title = translate_session_name(raw_session_name)
+        
+        st.sidebar.success(f"Sessão: {session_title}\n\n📍 {circuit_name} ({year})")
     else:
         session_key = None
+        session_title = "Aguardando Sessão"
+        circuit_name = "Circuito F1"
+        year = ""
         st.sidebar.warning("Nenhuma sessão ao vivo encontrada.")
+
+    # Banner Superior Dinâmico indicando o status atual ao vivo
+    banner_html = f"""
+    <div style="display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #121824 0%, #1a2332 100%); border: 1px solid #1f2a3a; border-left: 5px solid #e10600; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="live-dot"></span>
+            <div>
+                <span style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; display: block;">Sessão Ativa na Pista</span>
+                <span style="font-size: 1.1rem; font-weight: 900; color: #ffffff; letter-spacing: 0.5px;">{session_title}</span>
+            </div>
+        </div>
+        <div style="text-align: right;">
+            <span style="font-size: 0.8rem; color: #38bdf8; font-weight: 700; background: #1f2a3a; padding: 4px 10px; border-radius: 6px;">📍 {circuit_name} — {year}</span>
+        </div>
+    </div>
+    """
+    st.markdown(banner_html, unsafe_allow_html=True)
 
     col1, col2 = st.columns([1.4, 1.6])
 
@@ -256,12 +309,15 @@ if menu == "🏎️ Telemetria ao Vivo":
                     if not df_laps.empty and "lap_number" in df_laps.columns:
                         current_lap = int(df_laps["lap_number"].max())
                 
-                if current_lap == 1:
-                    st.markdown("""<div style="background: linear-gradient(90deg, #b91c1c, #ef4444); color: white; padding: 6px 12px; border-radius: 6px; font-weight: 800; text-align: center; margin-bottom: 8px; font-size: 0.8rem;">🔴🔴🔴🔴🔴 LARGADA AUTORIZADA — VOLTA 1</div>""", unsafe_allow_html=True)
-                elif current_lap >= total_laps:
-                    st.markdown("""<div style="background: linear-gradient(90deg, #1e293b, #334155); color: white; padding: 6px 12px; border-radius: 6px; font-weight: 800; text-align: center; margin-bottom: 8px; font-size: 0.8rem; border: 1px dashed #ffffff;">🏁 BANDEIRA QUADRICULADA — FIM DE CORRIDA! 🏁</div>""", unsafe_allow_html=True)
+                if "Race" in raw_session_name:
+                    if current_lap == 1:
+                        st.markdown("""<div style="background: linear-gradient(90deg, #b91c1c, #ef4444); color: white; padding: 6px 12px; border-radius: 6px; font-weight: 800; text-align: center; margin-bottom: 8px; font-size: 0.8rem;">🔴🔴🔴🔴🔴 LARGADA AUTORIZADA — VOLTA 1</div>""", unsafe_allow_html=True)
+                    elif current_lap >= total_laps:
+                        st.markdown("""<div style="background: linear-gradient(90deg, #1e293b, #334155); color: white; padding: 6px 12px; border-radius: 6px; font-weight: 800; text-align: center; margin-bottom: 8px; font-size: 0.8rem; border: 1px dashed #ffffff;">🏁 BANDEIRA QUADRICULADA — FIM DE CORRIDA! 🏁</div>""", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""<div style="display: flex; justify-content: space-between; background: #121824; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #1f2a3a;"><span style="font-size: 0.8rem; color: #94a3b8;">Total de Voltas do GP: <b>{total_laps}</b></span><span style="font-size: 0.85rem; font-weight: 800; color: #38bdf8;">🟢 Volta Atual: {current_lap} / {total_laps}</span></div>""", unsafe_allow_html=True)
                 else:
-                    st.markdown(f"""<div style="display: flex; justify-content: space-between; background: #121824; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #1f2a3a;"><span style="font-size: 0.8rem; color: #94a3b8;">Total de Voltas do GP: <b>{total_laps}</b></span><span style="font-size: 0.85rem; font-weight: 800; color: #38bdf8;">🟢 Volta Atual: {current_lap} / {total_laps}</span></div>""", unsafe_allow_html=True)
+                    st.markdown(f"""<div style="display: flex; justify-content: space-between; background: #121824; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #1f2a3a;"><span style="font-size: 0.8rem; color: #94a3b8;">Sessão: <b>{session_title}</b></span><span style="font-size: 0.85rem; font-weight: 800; color: #38bdf8;">⏱️ Voltas Registradas: {current_lap}</span></div>""", unsafe_allow_html=True)
 
                 if drivers_res and isinstance(drivers_res, list):
                     tires_map = {}
@@ -357,10 +413,9 @@ if menu == "🏎️ Telemetria ao Vivo":
                         in_pit = row["InPit"]
                         
                         time_display = row["Intervalo"] if is_interval else row["Gap"]
-                        if pos == 1:
+                        if pos == 1 and "Race" in raw_session_name:
                             time_display = "LEADER"
 
-                        # Apenas o piloto com a volta mais rápida geral recebe o reloginho e destaque em roxo
                         is_fastest_overall = (d_num == overall_fastest_driver)
                         time_prefix = "⏱️ " if is_fastest_overall else ""
                         time_style = "color: #a855f7; font-weight: 800;" if is_fastest_overall else "color: #f1f5f9;"
@@ -445,5 +500,6 @@ elif menu == "📅 Próximos GPs (Calendário)":
             card_html = f'<div class="f1-card standard-card"><div style="display: flex; justify-content: space-between; align-items: flex-start;"><div><span class="badge-pill">Etapa {round_num}</span><h3 style="margin: 8px 0 4px 0; font-size: 1.05rem; color: #ffffff;">🏁 {race_name}</h3><p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">📍 {circuit} ({country})</p></div><div style="text-align: right;"><div class="metric-label">Data</div><div style="font-weight: 700; color: #e2e8f0; font-size: 0.95rem;">📅 {date}</div></div></div></div>'
             cols[idx % 2].markdown(card_html, unsafe_allow_html=True)
             
+    // except Exception:
     except Exception:
         st.info("Carregando calendário de GPs...")
