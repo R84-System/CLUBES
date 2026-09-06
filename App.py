@@ -42,7 +42,13 @@ if not df_sessions.empty:
     
     st.subheader(f"Painel Oficial - {selected_circuit} ({selected_year}) - {selected_session_name}")
     
-    if st.button("Carregar Dados da Sessão"):
+    # Inicializando o estado da sessão para evitar o reset ao clicar em botões internos
+    if 'loaded_session_key' not in st.session_state:
+        st.session_state.loaded_session_key = None
+
+    if st.button("Carregar Dados da Sessão") or st.session_state.loaded_session_key == session_key:
+        st.session_state.loaded_session_key = session_key
+        
         with st.spinner("Baixando telemetria e posições da API..."):
             loc_res = requests.get(f"https://api.openf1.org/v1/location?session_key={session_key}")
             pos_res = requests.get(f"https://api.openf1.org/v1/position?session_key={session_key}")
