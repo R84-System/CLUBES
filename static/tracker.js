@@ -19,6 +19,7 @@ function runTracker() {
     let trackPoints = [];
     let driverPositions = {};
     let driversInfo = {};
+    let sessionEndTime = null;
 
     const sKey = window.sessionKey;
     if (!sKey || sKey === "None") return;
@@ -41,6 +42,12 @@ function runTracker() {
                 if (locs && locs.length > 0) {
                     locs.sort((a, b) => new Date(a.date) - new Date(b.date));
                     trackPoints = locs.filter(p => p.x !== 0 && p.y !== 0);
+                    
+                    if (trackPoints.length > 0) {
+                        // Pega um momento dinâmico próximo ao fim da amostra para espalhar os carros na pista
+                        sessionEndTime = trackPoints[trackPoints.length - 1].date;
+                        fetchPositionsAtTime(sessionEndTime);
+                    }
                 }
             }
         } catch (err) {
@@ -48,12 +55,14 @@ function runTracker() {
         }
     }
 
-    async function fetchLatestPositions() {
+    async function fetchPositionsAtTime(targetDateStr) {
         try {
-            const res = await fetch(`https://api.openf1.org/v1/location?session_key=${sKey}`);
+            let targetDate = new Date(targetDateStr);
+            let startWindow = new Date(targetDate.getTime() - 15000);
+            
+            const res = await fetch(`https://api.openf1.org/v1/location?session_key=${sKey}&date>=${startWindow.toISOString()}&date<=${targetDate.toISOString()}`);
             const data = await res.json();
             if (data && data.length > 0) {
-                // Ordena cronologicamente para garantir que pegamos o ponto mais recente de cada piloto
                 data.sort((a, b) => new Date(a.date) - new Date(b.date));
                 const latest = {};
                 data.forEach(p => {
@@ -140,7 +149,5 @@ function runTracker() {
     }
 
     initTrackerData();
-    fetchLatestPositions();
-    setInterval(fetchLatestPositions, 4000);
     render();
 }
