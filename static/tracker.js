@@ -4,9 +4,13 @@ import pandas as pd
 
 st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
 
-# Estilos CSS Avançados para Layout Profissional (F1 TV Style & Cards)
+# Estilos CSS Avançados para Layout Profissional (F1 TV Style & Cards) + Ocultar Barra Superior do Streamlit
 st.markdown(r"""
 <style>
+    /* Esconde a barra de carregamento e o cabeçalho padrão do Streamlit */
+    div[data-testid="stDecoration"] {visibility: hidden; height: 0px; display: none;}
+    header {visibility: hidden; height: 0px; display: none;}
+    
     .stApp {
         background-color: #0b0e14;
         color: #ffffff;
@@ -192,41 +196,15 @@ def get_driver_flag(nationality):
     }
     return flags.get(nationality, "🏁")
 
-# Função com CDN Proxy (Garante que os escudos reais carreguem sem bloqueios)
-def get_team_logo_url(team_name):
-    t = team_name.lower()
-    if "ferrari" in t:
-        path = "upload.wikimedia.org/wikipedia/commons/e/ec/Scuderia_Ferrari_Logo.svg"
-    elif "red bull" in t:
-        path = "upload.wikimedia.org/wikipedia/commons/f/f3/Red_Bull_Racing_logo.svg"
-    elif "mercedes" in t:
-        path = "upload.wikimedia.org/wikipedia/commons/f/fb/Mercedes_AMG_Petronas_F1_Team_Logo.svg"
-    elif "mclaren" in t:
-        path = "upload.wikimedia.org/wikipedia/commons/6/66/McLaren_Racing_logo.svg"
-    elif "aston martin" in t:
-        path = "upload.wikimedia.org/wikipedia/commons/7/72/Aston_Martin_Aramco_F1_logo.svg"
-    elif "alpine" in t:
-        path = "upload.wikimedia.org/wikipedia/commons/7/73/Alpine_F1_Team_Logo.svg"
-    elif "williams" in t:
-        path = "upload.wikimedia.org/wikipedia/commons/e/e1/Williams_F1_logo_2020.svg"
-    elif "rb" in t or "visa cash app" in t or "racing bulls" in t:
-        path = "upload.wikimedia.org/wikipedia/commons/c/c2/Visa_Cash_App_RB_Logo.svg"
-    elif "sauber" in t or "kick" in t or "stake" in t:
-        path = "upload.wikimedia.org/wikipedia/commons/4/4b/Stake_F1_Team_Kick_Sauber_logo.svg"
-    elif "haas" in t:
-        path = "upload.wikimedia.org/wikipedia/commons/d/d4/Haas_F1_Team_Logo.svg"
-    else:
-        path = "upload.wikimedia.org/wikipedia/commons/3/33/F1.svg"
-    
-    # Usa o Weserv CDN Proxy para carregar a imagem com segurança em qualquer navegador
-    return f"https://images.weserv.nl/?url={path}&w=100&h=100&fit=contain"
-
-# Menu Lateral de Navegação
-st.sidebar.title("🏁 F1 Hub Pro")
-menu = st.sidebar.radio(
+# Menu de Navegação Horizontal no Topo (Acima de tudo)
+menu = st.radio(
     "Navegação",
-    ["🏎️ Telemetria ao Vivo", "🏆 Classificação do Campeonato", "📅 Próximos GPs (Calendário)"]
+    ["🏎️ Telemetria ao Vivo", "🏆 Classificação do Campeonato", "📅 Próximos GPs (Calendário)"],
+    horizontal=True,
+    label_visibility="collapsed"
 )
+
+st.markdown("<hr style='border: 1px solid #1f2a3a; margin-top: 5px; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 if menu == "🏎️ Telemetria ao Vivo":
     @st.cache_data(ttl=15)
@@ -246,14 +224,11 @@ if menu == "🏎️ Telemetria ao Vivo":
         year = latest_session.get('year', '')
         raw_session_name = latest_session.get('session_name', '')
         session_title = translate_session_name(raw_session_name)
-        
-        st.sidebar.success(f"Sessão: {session_title}\n\n📍 {circuit_name} ({year})")
     else:
         session_key = None
         session_title = "Aguardando Sessão"
         circuit_name = "Circuito F1"
         year = ""
-        st.sidebar.warning("Nenhuma sessão ao vivo encontrada.")
 
     # Banner Superior Dinâmico indicando o status atual ao vivo
     banner_html = f"""
@@ -406,7 +381,6 @@ if menu == "🏎️ Telemetria ao Vivo":
                             "Nº": d_num,
                             "Piloto": acronym,
                             "Equipe": team,
-                            "Logo": get_team_logo_url(team),
                             "Pneu": tyre_letter,
                             "TyreClass": tyre_class,
                             "Intervalo": interval_map.get(d_num, "LEADER" if position == 1 else "-"),
@@ -425,7 +399,6 @@ if menu == "🏎️ Telemetria ao Vivo":
                         pos_class = "timing-pos-1" if pos == 1 else ("timing-pos-2" if pos == 2 or pos == 3 else "")
                         pilot = row["Piloto"]
                         team = row["Equipe"]
-                        logo_url = row["Logo"]
                         tyre = row["Pneu"]
                         t_class = row["TyreClass"]
                         lap_time = row["Melhor Volta"]
@@ -450,12 +423,9 @@ if menu == "🏎️ Telemetria ao Vivo":
                                     <div class="timing-pos">{pos}</div>
                                     <div style="font-size: 0.6rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div>
                                 </div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <img src="{logo_url}" width="24" height="24" style="object-fit: contain; background: transparent;" />
-                                    <div>
-                                        <div style="display: flex; align-items: center;"><span class="timing-driver">{pilot}</span></div>
-                                        <div class="timing-team">{team}</div>
-                                    </div>
+                                <div>
+                                    <div style="display: flex; align-items: center;"><span class="timing-driver">{pilot}</span></div>
+                                    <div class="timing-team">{team}</div>
                                 </div>
                             </div>
                             <div style="display:flex; align-items:center; gap:6px;">{ms_html}</div>
@@ -495,7 +465,6 @@ elif menu == "🏆 Classificação do Campeonato":
                 nationality = item['Driver'].get('nationality', '')
                 flag = get_driver_flag(nationality)
                 team_name = item["Constructors"][0]["name"]
-                logo_url = get_team_logo_url(team_name)
                 points = item["points"]
                 wins = item["wins"]
                 
@@ -504,12 +473,9 @@ elif menu == "🏆 Classificação do Campeonato":
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <span style="font-size: 1.5rem; font-weight: 900; color: {"#ffd700" if pos==1 else "#c0c0c0" if pos==2 else "#cd7f32" if pos==3 else "#ffffff"};">#{pos}</span>
-                            <div style="display: flex; align-items: center; gap: 12px;">
-                                <img src="{logo_url}" width="32" height="32" style="object-fit: contain; background: transparent;" />
-                                <div>
-                                    <h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{flag} {driver_name}</h3>
-                                    <p style="margin: 2px 0 0 0; font-size: 0.85rem; color: #94a3b8;">{team_name}</p>
-                                </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{flag} {driver_name}</h3>
+                                <p style="margin: 2px 0 0 0; font-size: 0.85rem; color: #94a3b8;">{team_name}</p>
                             </div>
                         </div>
                         <div style="text-align: right; display: flex; gap: 15px; align-items: center;">
@@ -537,7 +503,6 @@ elif menu == "🏆 Classificação do Campeonato":
                 pos = int(item["position"])
                 card_class = f"podium-{pos}" if pos <= 3 else "standard-card"
                 team_name = item["Constructor"]["name"]
-                logo_url = get_team_logo_url(team_name)
                 points = item["points"]
                 wins = item["wins"]
                 
@@ -546,11 +511,8 @@ elif menu == "🏆 Classificação do Campeonato":
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div style="display: flex; align-items: center; gap: 15px;">
                             <span style="font-size: 1.5rem; font-weight: 900; color: {"#ffd700" if pos==1 else "#c0c0c0" if pos==2 else "#cd7f32" if pos==3 else "#ffffff"};">#{pos}</span>
-                            <div style="display: flex; align-items: center; gap: 12px;">
-                                <img src="{logo_url}" width="36" height="36" style="object-fit: contain; background: transparent;" />
-                                <div>
-                                    <h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{team_name}</h3>
-                                </div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{team_name}</h3>
                             </div>
                         </div>
                         <div style="text-align: right; display: flex; gap: 15px; align-items: center;">
