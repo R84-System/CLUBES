@@ -56,7 +56,6 @@ st.markdown("""
         font-size: 1.1rem;
         margin-bottom: 15px;
         box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
-        animation: pulse 1.5s infinite;
     }
     .alert-red {
         background: #dc2626;
@@ -228,14 +227,14 @@ if menu == "🏎️ Telemetria ao Vivo":
         except:
             pass
 
-    # Layout Principal: Circuito Horizontal em cima/esquerda e Torre ao lado
+    # Layout Principal: Circuito Horizontal e Torre ao lado
     col_circuit, col_tower = st.columns([1.6, 1.4])
 
     with col_circuit:
         st.subheader("Circuito em Tempo Real (Horizontal)")
         
         # HTML + Canvas para o Circuito Fundo Branco, Pista Preta com Linha Branca no Meio
-        track_html = f"""
+        track_html = """
         <div style="position:relative; width:100%; height:320px; background:#ffffff; border-radius:12px; border:2px solid #cbd5e1; box-shadow: 0 4px 15px rgba(0,0,0,0.15); overflow:hidden;">
             <canvas id="f1Canvas" width="700" height="320" style="width:100%; height:100%;"></canvas>
         </div>
@@ -244,11 +243,9 @@ if menu == "🏎️ Telemetria ao Vivo":
             const ctx = canvas.getContext('2d');
             
             function drawHorizontalTrack() {
-                // Fundo Branco
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
-                // Desenho da Pista (Horizontal e Dupla/Larga) - Cor Preta
                 ctx.beginPath();
                 ctx.strokeStyle = '#111111';
                 ctx.lineWidth = 42;
@@ -260,7 +257,6 @@ if menu == "🏎️ Telemetria ao Vivo":
                 ctx.bezierCurveTo(600, 240, 350, 280, 100, 160);
                 ctx.stroke();
 
-                // Linha Branca Fina no Meio da Pista
                 ctx.beginPath();
                 ctx.strokeStyle = '#ffffff';
                 ctx.lineWidth = 2;
@@ -280,7 +276,6 @@ if menu == "🏎️ Telemetria ao Vivo":
     with col_tower:
         st.subheader("Torre de Tempos & Segundos")
         
-        # Botão/Seletor para Alternar entre Intervalo (Carro da Frente) e Gap (Líder)
         modo_tempo = st.radio(
             "Visualizar diferença de tempo:",
             ["Intervalo (Carro da Frente)", "Diferença para o Líder (Gap)"],
@@ -297,7 +292,6 @@ if menu == "🏎️ Telemetria ao Vivo":
                 positions_res = requests.get(f"https://api.openf1.org/v1/position?session_key={session_key}").json()
                 laps_res = requests.get(f"https://api.openf1.org/v1/laps?session_key={session_key}").json()
                 
-                # Número de Voltas Atual
                 current_lap = "1"
                 if laps_res and isinstance(laps_res, list):
                     df_laps = pd.DataFrame(laps_res)
@@ -388,7 +382,6 @@ if menu == "🏎️ Telemetria ao Vivo":
                     df_display = pd.DataFrame(table_data)
                     df_display = df_display.sort_values(by="Pos").reset_index(drop=True)
                     
-                    # Renderização em Blocos da Torre de Tempos
                     st.markdown('<div class="timing-container">', unsafe_allow_html=True)
                     for _, row in df_display.iterrows():
                         pos = row["Pos"]
@@ -400,7 +393,6 @@ if menu == "🏎️ Telemetria ao Vivo":
                         t_class = row["TyreClass"]
                         lap_time = row["Melhor Volta"]
                         
-                        # Escolhe o tempo exibido com base no botão interativo
                         time_display = row["Intervalo"] if is_interval else row["Gap"]
                         if pos == 1:
                             time_display = "LEADER"
