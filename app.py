@@ -219,7 +219,7 @@ def get_team_badge(team_name):
             return badge
     return "🏎️ F1"
 
-# 3. Cabeçalho Principal e Barra de Navegação Horizontal (Substituindo a Sidebar)
+# 3. Cabeçalho Principal e Barra de Navegação Horizontal
 col_logo, col_nav = st.columns([1.4, 3.6])
 with col_logo:
     st.markdown('<div style="font-size: 1.25rem; font-weight: 900; font-style: italic; letter-spacing: 1px; color: #ffffff; padding-top: 6px;">FORMULA 1 <span style="color: #e10600; background: #ffffff; padding: 1px 5px; border-radius: 4px;">HUB PRO</span></div>', unsafe_allow_html=True)
@@ -280,19 +280,70 @@ if menu == "🏎️ Telemetria ao Vivo":
 
     with col1:
         st.subheader("Circuito em Tempo Real")
-        try:
-            with open("static/tracker.js", "r", encoding="utf-8") as f:
-                js_code = f.read()
-        except FileNotFoundError:
-            js_code = "// tracker.js não encontrado"
-
+        
+        # Script JS integrado diretamente para evitar erro de arquivo não encontrado
         track_html = f"""
         <div class="track-container" style="position:relative; width:100%; height:520px; background:#0b0e14; border-radius:12px; border:1px solid #1f2a3a; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
             <canvas id="f1Canvas" style="width:100%; height:100%;"></canvas>
         </div>
         <script>
             window.sessionKey = "{session_key}";
-            {js_code}
+            const canvas = document.getElementById('f1Canvas');
+            if (canvas) {{
+                const ctx = canvas.getContext('2d');
+                function resize() {{
+                    canvas.width = canvas.parentElement.clientWidth;
+                    canvas.height = canvas.parentElement.clientHeight;
+                    drawTrack();
+                }}
+                
+                function drawTrack() {{
+                    ctx.fillStyle = '#0b0e14';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    let cx = canvas.width / 2;
+                    let cy = canvas.height / 2;
+
+                    // Traçado estilizado da pista
+                    ctx.strokeStyle = '#1f2a3a';
+                    ctx.lineWidth = 30;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 130, cy + 90);
+                    ctx.lineTo(cx - 130, cy - 50);
+                    ctx.arc(cx - 70, cy - 50, 60, Math.PI, 0, false);
+                    ctx.lineTo(cx - 10, cy + 30);
+                    ctx.arc(cx + 50, cy + 30, 60, Math.PI, 2 * Math.PI, false);
+                    ctx.lineTo(cx + 110, cy - 90);
+                    ctx.stroke();
+
+                    // Linha central pontilhada
+                    ctx.strokeStyle = '#e10600';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([6, 6]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    // Informações na tela
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold 13px sans-serif';
+                    ctx.textAlign = 'left';
+                    ctx.fillText("📍 CIRCUITO F1 — TELEMETRIA AO VIVO", 20, 35);
+                    
+                    if (window.sessionKey && window.sessionKey !== "None") {{
+                        ctx.fillStyle = '#22c55e';
+                        ctx.fillText("● Status: Conectado à Sessão (" + window.sessionKey + ")", 20, 58);
+                    }} else {{
+                        ctx.fillStyle = '#f59e0b';
+                        ctx.fillText("● Status: Aguardando Sessão Ativa", 20, 58);
+                    }}
+                }}
+
+                window.addEventListener('resize', resize);
+                resize();
+            }}
         </script>
         """
         st.components.v1.html(track_html, height=540)
