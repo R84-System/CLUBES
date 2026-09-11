@@ -1,174 +1,114 @@
 import streamlit as st
-import streamlit.components.v1 as components
 import requests
-from datetime import datetime
+import pandas as pd
 
-# Configuração de Página Ultra-Wide e responsiva
-st.set_page_config(page_title="F1 Ultra-Low Latency Dashboard", layout="wide", initial_sidebar_state="collapsed")
+# Configuração de Página Limpa e Escura
+st.set_page_config(page_title="F1 Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
-st.markdown("<h1 style='text-align: center; color: #FF1801; margin-bottom: 5px;'>🏎️ F1 REAL-TIME TELEMETRY</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #aaa; margin-top: 0px;'>Suporte a Dados Históricos e Ao Vivo com Nome de Pilotos</p>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #FF1801; margin-bottom: 5px;'>🏎️ F1 DASHBOARD TELEMETRIA</h1>", unsafe_allow_html=True)
 
-# --- CONFIGURAÇÃO AUTOMÁTICA DE SESSÕES VIA PYTHON ---
+# 1. BUSCA AS SESSÕES (Filtro leve direto por Python)
 @st.cache_data(ttl=60)
-def buscar_sessoes_ativas():
+def carregar_gps():
     try:
-        url = "https://openf1.org"
-        resposta = requests.get(url, timeout=5)
-        if resposta.status_code == 200:
-            dados = resposta.json()
-            agora = datetime.utcnow()
-            opcoes = {}
-            for s in dados[::-1]:
-                data_inicio_str = s.get('date_start')
-                if not data_inicio_str: continue
-                try:
-                    data_limpa = data_inicio_str.split('+')[0].rstrip('Z')
-                    data_inicio = datetime.strptime(data_limpa, "%Y-%m-%dT%H:%M:%S")
-                except ValueError: continue
-                
-                if data_inicio <= agora:
-                    nome_formatado = f"📍 {s.get('location', 'Desconhecido')} ({s.get('year')}) - {s.get('session_name')}"
-                    if nome_formatado not in opcoes and len(opcoes) < 30:
-                        opcoes[nome_formatado] = str(s.get('session_key'))
-            if opcoes: return opcoes
-    except Exception: pass
-    return {"GP de Mônaco (2024) - Race": "9523"}
+        # Puxa apenas as últimas 40 sessões para não travar o app
+        url = "https://api.openf1.org/v1/sessions"
+        r = requests.get(url, timeout=5).json()
+        opcoes = {}
+        for s in r[::-1]:
+            if s.get('session_key') and s.get('location'):
+                nome = f"📍 {s.get('location')} ({s.get('year')}) - {s.get('session_name')}"
+                if nome not in opcoes and len(opcoes) < 40:
+                    opcoes[nome] = str(s.get('session_key'))
+        return opcoes
+    except:
+        return {"GP de Mônaco (2024) - Race": "9523"}
 
-dicionario_sessoes = buscar_sessoes_ativas()
-sessao_selecionada = st.selectbox("🏁 Selecione o Grande Prêmio:", list(dicionario_sessoes.keys()))
-session_key_final = dicionario_sessoes[sessao_selecionada]
+dicionario_gps = carregar_gps()
+selecionado = st.selectbox("🏁 Escolha o Grande Prêmio:", list(dicionario_gps.keys()))
+id_sessao = dicionario_gps[selecionado]
 
-st.caption(f"ID da Sessão ativa enviado ao Motor JS: `{session_key_final}`")
+# Botão manual para forçar a atualização dos dados se necessário
+if st.button("🔄 Atualizar Dados da Pista"):
+    st.cache_data.clear()
+
 st.markdown("---")
 
-# --- BLOCCO JAVASCRIPT INJETADO (Mínima Latência e Leitura Completa) ---
-js_telemetry_engine = f"""
-<div style="background-color: #1a1a1a; padding: 20px; border-radius: 10px; font-family: monospace; color: white; border: 1px solid #333;">
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
-        <div style="background: #262626; padding: 15px; border-radius: 8px; border-left: 5px solid #FF1801;">
-            <h3 style="margin: 0 0 10px 0; color: #FF1801;">STATUS DA PISTA</h3>
-            <div id="track-status" style="font-size: 24px; font-weight: bold;">Carregando dados estáveis...</div>
-        </div>
-        <div style="background: #262626; padding: 15px; border-radius: 8px; border-left: 5px solid #00D2C4;">
-            <h3 style="margin: 0 0 10px 0; color: #00D2C4;">MAIOR VELOCIDADE EM PISTA</h3>
-            <div id="top-speed" style="font-size: 28px; font-weight: bold;">-- <span style="font-size: 14px; color: #888;">km/h</span></div>
-            <div id="top-driver" style="font-size: 14px; color: #aaa;">Processando pacotes...</div>
-        </div>
-    </div>
+# Mapeamento oficial dos pilotos
+drivers_map = {
+    1: "Max VERSTAPPEN (Red Bull)", 11: "Sergio PEREZ (Red Bull)", 
+    16: "Charles LECLERC (Ferrari)", 55: "Carlos SAINZ (Ferrari)",
+    44: "Lewis HAMILTON (Mercedes)", 63: "George RUSSELL (Mercedes)", 
+    4: "Lando NORRIS (McLaren)", 81: "Oscar PIASTRI (McLaren)",
+    14: "Fernando ALONSO (Aston Martin)", 18: "Lance STROLL (Aston Martin)", 
+    10: "Pierre GASLY (Alpine)", 31: "Esteban OCON (Alpine)",
+    23: "Alex ALBON (Williams)", 22: "Yuki TSUNODA (RB)", 
+    27: "Nico HULKENBERG (Haas)"
+}
 
-    <h3 style="color: #FF1801; border-bottom: 1px solid #333; padding-bottom: 5px;">LIVE GRID INTERVALS</h3>
-    <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 15px;">
-        <thead>
-            <tr style="color: #888; border-bottom: 2px solid #333;">
-                <th style="padding: 10px 5px;">POS</th>
-                <th>PILOTO</th>
-                <th>GAP P/ LÍDER</th>
-                <th>INTERVALO</th>
-            </tr>
-        </thead>
-        <tbody id="grid-table-body">
-            <tr><td colspan="4" style="padding: 20px; text-align: center; color: #666;">Buscando base de dados da F1...</td></tr>
-        </tbody>
-    </table>
-</div>
+# 2. REQUISIÇÃO DIRETA DOS DADOS (Sem JavaScript complexo)
+try:
+    with st.spinner("Buscando dados no servidor da F1..."):
+        # Puxa o status mais recente da pista
+        url_status = f"https://openf1.org{id_sessao}"
+        dados_status = requests.get(url_status, timeout=5).json()
+        
+        # Puxa a tabela de posições/gaps
+        url_grid = f"https://openf1.org{id_sessao}"
+        dados_grid = requests.get(url_grid, timeout=5).json()
 
-<script>
-const SESSION_KEY = "{session_key_final}";
+    # --- EXIBIÇÃO DO STATUS DA PISTA ---
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("🚩 STATUS DA PISTA")
+        if dados_status:
+            ultima_bandeira = dados_status[-1].get('flag', 'PISTA LIMPA')
+            if ultima_bandeira == "RED":
+                st.error("🔴 BANDEIRA VERMELHA (Sessão Suspensa)")
+            elif ultima_bandeira == "YELLOW":
+                st.warning("🟡 BANDEIRA AMARELA (Atenção na pista)")
+            elif ultima_bandeira == "GREEN":
+                st.success("🟢 BANDEIRA VERDE (Pista Livre)")
+            else:
+                st.info(f"⚪ STATUS: {ultima_bandeira}")
+        else:
+            st.info("⚪ STATUS: PISTA LIMPA / CONCLUÍDA")
 
-// Dicionário de tradução dos números dos pilotos para facilitar a leitura no tablet
-const driversMap = {{
-    "1": "VER (Red Bull)", "11": "PER (Red Bull)", "16": "LEC (Ferrari)", "55": "SAI (Ferrari)",
-    "44": "HAM (Mercedes)", "63": "RUS (Mercedes)", "4": "NOR (McLaren)", "81": "PIA (McLaren)",
-    "14": "ALO (Aston Martin)", "18": "STR (Aston Martin)", "10": "GAS (Alpine)", "31": "OCO (Alpine)",
-    "23": "ALB (Williams)", "2": "SAR (Williams)", "3": "RIC (RB)", "22": "TSU (RB)",
-    "77": "BOT (Sauber)", "24": "ZHU (Sauber)", "20": "MAG (Haas)", "27": "HUL (Haas)"
-}};
+    with col2:
+        st.subheader("⚡ SESSÃO CONECTADA")
+        st.code(f"ID Único da Corrida (Session Key): {id_sessao}")
 
-async function updateTelemetry() {{
-    try {{
-        // 1. Status da Pista (Pega o último status gerado na corrida)
-        const trackRes = await fetch(`https://openf1.org{{SESSION_KEY}}`);
-        const trackData = await trackRes.json();
-        if(trackData && trackData.length > 0) {{
-            const latestStatus = trackData[trackData.length - 1];
-            const statusDiv = document.getElementById('track-status');
-            statusDiv.innerText = latestStatus.flag || "PISTA LIMPA";
-            if(latestStatus.flag === "RED") statusDiv.style.color = "#FF1801";
-            else if(latestStatus.flag === "YELLOW") statusDiv.style.color = "#FFCC00";
-            else if(latestStatus.flag === "GREEN") statusDiv.style.color = "#00FF00";
-            else statusDiv.style.color = "#FFFFFF";
-        }} else {{
-            document.getElementById('track-status').innerText = "FINALIZADA / LIMPA";
-        }}
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.subheader("📊 CLASSIFICAÇÃO / INTERVALOS DOS PILOTOS")
 
-        // 2. Velocidade Máxima Gravada (Removemos o filtro dinâmico de tempo para buscar o recorde geral da sessão)
-        const carRes = await fetch(`https://openf1.org{{SESSION_KEY}}&speed>280`);
-        const carData = await carRes.json();
-        if(carData && carData.length > 0) {{
-            let maxSpeed = 0;
-            let fastDriverNum = "";
-            // Analisa uma amostragem grande para achar o ponto mais rápido
-            const sample = carData.length > 300 ? carData.slice(-300) : carData;
-            sample.forEach(d => {{
-                if(d.speed > maxSpeed) {{
-                    maxSpeed = d.speed;
-                    fastDriverNum = String(d.driver_number);
-                }}
-            }});
-            if(maxSpeed > 0) {{
-                const driverName = driversMap[fastDriverNum] || `Piloto #${{fastDriverNum}}`;
-                document.getElementById('top-speed').innerHTML = `${{maxSpeed}} <span style="font-size: 14px; color: #888;">km/h</span>`;
-                document.getElementById('top-driver').innerText = "Registrado por: " + driverName;
-            }}
-        }}
+    # --- PROCESSAMENTO DA TABELA DE INTERVALOS ---
+    if dados_grid:
+        # Consolida o último registro de cada piloto
+        df_bruto = pd.DataFrame(dados_grid)
+        df_ultimos = df_bruto.sort_values('date').groupby('driver_number').last().reset_index()
+        
+        # Aplica os nomes reais dos pilotos
+        df_ultimos['Piloto'] = df_ultimos['driver_number'].map(drivers_map).fillna(df_ultimos['driver_number'].apply(lambda x: f"Piloto #{x}"))
+        
+        # Organiza por quem está mais perto do líder (menor gap)
+        df_ultimos['gap_num'] = pd.to_numeric(df_ultimos['gap_to_leader'], errors='coerce').fillna(0)
+        df_final = df_ultimos.sort_values('gap_num')
+        
+        # Formata os dados para exibição final elegante
+        tabela_exibicao = pd.DataFrame({
+            "Piloto": df_final['Piloto'],
+            "Gap para o Líder": df_final['gap_to_leader'].apply(lambda x: "LÍDER" if pd.isna(x) or x == "" else f"+{x}s"),
+            "Intervalo p/ Carro da Frente": df_final['interval'].apply(lambda x: "---" if pd.isna(x) or x == "" else f"+{x}s")
+        }).reset_index(drop=True)
+        
+        # Ajusta o índice para começar da Posição 1
+        tabela_exibicao.index = tabela_exibicao.index + 1
+        
+        # Desenha a tabela nativa do Streamlit na tela do Tablet
+        st.dataframe(tabela_exibicao, use_container_width=True)
+    else:
+        st.warning("⚠️ Não há dados de voltas salvos para este treino/corrida selecionado.")
 
-        // 3. Tabela de Posições e Gaps Completos
-        const intervalRes = await fetch(`https://openf1.org{{SESSION_KEY}}`);
-        const intervalData = await intervalRes.json();
-        if(intervalData && intervalData.length > 0) {{
-            const uniqueDrivers = {{}};
-            // Processa todas as entradas para montar o grid final consolidado da corrida
-            intervalData.forEach(item => {{
-                uniqueDrivers[item.driver_number] = item;
-            }});
-
-            const sortedGrid = Object.values(uniqueDrivers).sort((a, b) => {{
-                return (parseFloat(a.gap_to_leader) || 0) - (parseFloat(b.gap_to_leader) || 0);
-            }});
-
-            let tbodyHtml = "";
-            sortedGrid.forEach((row, index) => {{
-                const driverNumStr = String(row.driver_number);
-                const driverLabel = driversMap[driverNumStr] || `Piloto #${{driverNumStr}}`;
-                
-                let gapText = row.gap_to_leader === null || row.gap_to_leader === undefined ? "LÍDER" : `+${{row.gap_to_leader}}s`;
-                if(index === 0) gapText = "LÍDER";
-
-                tbodyHtml += `
-                    <tr style="border-bottom: 1px solid #222; font-size: 14px;">
-                        <td style="padding: 10px 5px; font-weight: bold; color: #FF1801;">${{index + 1}}</td>
-                        <td style="font-weight: bold; color: #fff;">${{driverLabel}}</td>
-                        <td style="color: #00D2C4;">${{gapText}}</td>
-                        <td style="color: #ccc;">+${{row.interval || '0.000'}}s</td>
-                    </tr>
-                `;
-            }});
-            document.getElementById('grid-table-body').innerHTML = tbodyHtml;
-        }} else {{
-            document.getElementById('grid-table-body').innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #888;">Sem telemetria de grid salva para este ID. Traga um GP recente de 2024!</td></tr>';
-        }}
-
-    }} catch (error) {{
-        console.error("Erro no motor JavaScript:", error);
-    }}
-}}
-
-// Mantém o ciclo ativo
-setInterval(updateTelemetry, 3000);
-updateTelemetry();
-</script>
-"""
-
-components.html(js_telemetry_engine, height=650, scrolling=True)
-st.caption("⚡ Sistema híbrido ativado. Pronto para a próxima corrida ao vivo do final de semana.")
+except Exception as erro:
+    st.error(f"Erro de comunicação com a API F1. Detalhes: {erro}")
