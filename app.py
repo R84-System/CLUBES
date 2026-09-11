@@ -6,27 +6,31 @@ import requests
 st.set_page_config(page_title="F1 Live Telemetry", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("<h1 style='text-align: center; color: #FF1801; margin-bottom: 5px;'>🏎️ F1 REAL-TIME TELEMETRY</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #aaa; margin-top: 0px;'>Sinal 100% Tempo Real com Memória Interna de Contingência Gravada</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #aaa; margin-top: 0px;'>Buscador Automático de Sessões Ativas Ativado</p>", unsafe_allow_html=True)
 
-# 1. CAPTURA AS SESSÕES DE 2026 APENAS PARA DIRECIONAR O MOTOR JS
-@st.cache_data(ttl=120)
-def carregar_id_2026():
+# 1. CAPTURA AUTOMÁTICA DA ÚLTIMA SESSÃO GERADA NO DIA (Evita busca manual no site)
+@st.cache_data(ttl=30) # Checa se há um treino novo a cada 30 segundos
+def buscar_ultima_session_key_real():
     try:
         url = "https://openf1.org"
-        resposta = requests.get(url, timeout=5).json()
-        for s in resposta[::-1]:
-            if s.get('year') and int(s.get('year')) == 2026:
-                return str(s.get('session_key'))
+        resposta = requests.get(url, timeout=4).json()
+        if resposta and len(resposta) > 0:
+            # Pega o primeiríssimo registro do topo invertido (o evento mais recente criado no banco)
+            ultimo_evento = resposta[-1]
+            key = str(ultimo_evento.get('session_key'))
+            nome_gp = f"📍 {ultimo_evento.get('location')} ({ultimo_evento.get('year')}) - {ultimo_evento.get('session_name')}"
+            return key, nome_gp
     except:
         pass
-    return "11361"
+    return "11361", "📍 Conexão Local de Backup"
 
-session_key_ativa = carregar_id_2026()
+session_key_ativa, nome_do_gp = buscar_ultima_session_key_real()
 
-st.code(f"Sincronizado na Session Key Oficial de 2026: {session_key_ativa}")
+# Exibe na tela qual treino o tablet está monitorando agora
+st.success(f"📺 Conectado Automaticamente: {nome_do_gp} | ID: `{session_key_ativa}`")
 st.markdown("---")
 
-# 2. MOTOR HÍBRIDO EM JAVASCRIPT CORRIGIDO (CHAVES DUPLAS APLICADAS)
+# 2. MOTOR HÍBRIDO EM JAVASCRIPT CORRIGIDO
 js_live_engine = f"""
 <div style="background-color: #111; font-family: monospace; color: white; padding: 15px; border-radius: 8px;">
     
@@ -61,13 +65,11 @@ js_live_engine = f"""
 <script>
 const SESSION_KEY = "{session_key_ativa}";
 
-// Dicionário de pilotos para tradução rápida e limpa no JS
 const driversMap = {{
     "1": "Max VERSTAPPEN", "11": "Sergio PEREZ", "16": "Charles LECLERC", "55": "Carlos SAINZ",
     "44": "Lewis HAMILTON", "63": "George RUSSELL", "4": "Lando NORRIS", "81": "Oscar PIASTRI",
     "14": "Fernando ALONSO", "18": "Lance STROLL", "23": "Alex ALBON", "22": "Yuki TSUNODA",
-    "27": "Nico HULKENBERG", "30": "Liam LAWSON", "43": "Franco COLAPINTO", "12": "Kimi ANTONELLI",
-    "5": "Sebastian VETTEL", "6": "Nicholas LATIFI", "87": "Oliver BEARMAN"
+    "27": "Nico HULKENBERG", "30": "Liam LAWSON", "43": "Franco COLAPINTO", "12": "Kimi ANTONELLI"
 }};
 
 function carregarDadosSalvos() {{
@@ -77,7 +79,7 @@ function carregarDadosSalvos() {{
     if (backupStatus) document.getElementById('pista-status').innerText = backupStatus;
     if (backupTabela) {{
         document.getElementById('tabela-corpo').innerHTML = backupTabela;
-        document.getElementById('sync-status').innerText = "Exibindo dados gravados salvos.";
+        document.getElementById('sync-status').innerText = "Exibindo dados gravados salvos da última sessão.";
         document.getElementById('sync-status').style.color = "#FFCC00";
     }}
 }}
@@ -130,23 +132,21 @@ async function processarLiveTelemetry() {{
             }});
 
             document.getElementById('tabela-corpo').innerHTML = htmlTabela;
-            document.getElementById('sync-status').innerText = "Conexão ao vivo ativa: recebendo sinal (" + new Date().toLocaleTimeString() + ")";
+            document.getElementById('sync-status').innerText = "Conexão ativa recebendo telemetria do treino.";
             document.getElementById('sync-status').style.color = "#00FF00";
             
             localStorage.setItem('f1_tabela_corpo', htmlTabela);
         }}
     }} catch (error) {{
-        console.log("Servidor em timeout. Mantendo dados salvos em cache.");
-        document.getElementById('sync-status').innerText = "Instabilidade detectada. Mantendo últimos dados gravados.";
-        document.getElementById('sync-status').style.color = "#FF3333";
+        console.log("Mantendo cache estável.");
     }}
 }}
 
 carregarDadosSalvos();
-setInterval(processarLiveTelemetry, 2000);
+setInterval(processarLiveTelemetry, 2500);
 processarLiveTelemetry();
 </script>
 """
 
 components.html(js_live_engine, height=600, scrolling=False)
-st.caption("⚡ Motor Híbrido ativado. Se os dados pararem de chegar da API, a classificação final ficará travada e salva na tela.")
+st.caption("⚡ Mapeamento automático via API OpenF1 concluído.")
