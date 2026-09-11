@@ -1,14 +1,42 @@
 import streamlit as st
 import streamlit.components.v1 as components
+import requests
 
 # Configuração de Página Ultra-Wide e responsiva
 st.set_page_config(page_title="F1 Ultra-Low Latency Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("<h1 style='text-align: center; color: #FF1801; margin-bottom: 5px;'>🏎️ F1 REAL-TIME TELEMETRY</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #aaa; margin-top: 0px;'>Painel Inteligente Automático — Baixa Latência</p>", unsafe_allow_html=True)
 
-# Barra de seleção para mudar a corrida em tempo real pelo Tablet
-st.markdown("---")
-session_input = st.text_input("📋 Digite o código da sessão (Session Key) ativa da F1:", "9149")
+# --- CONFIGURAÇÃO AUTOMÁTICA DE SESSÕES VIA PYTHON ---
+@st.cache_data(ttl=300)  # Atualiza a lista a cada 5 minutos
+def buscar_sessoes_ativas():
+    try:
+        # Busca as últimas sessões registradas no servidor OpenF1
+        url = "https://api.openf1.org/v1/sessions"
+        resposta = requests.get(url, timeout=5)
+        if resposta.status_code == 200:
+            dados = resposta.json()
+            # Inverte para mostrar as mais recentes primeiro e filtra dados válidos
+            dados_recentes = dados[::-1][:25]
+            opcoes = {}
+            for s in dados_recentes:
+                # Monta um nome amigável para o menu: Ex: "Monaco (2024) - Race"
+                nome_formatado = f"📍 {s.get('location', 'Desconhecido')} ({s.get('year')}) - {s.get('session_name')}"
+                opcoes[nome_formatado] = str(s.get('session_key'))
+            return opcoes
+    except Exception as e:
+        pass
+    # Caso o servidor falhe, retorna uma sessão padrão histórica de segurança
+    return {"GP de Mônaco - Corrida Histórica": "9523"}
+
+# Carrega o menu no topo do painel do tablet
+dicionario_sessoes = buscar_sessoes_ativas()
+sessao_selecionada = st.selectbox("🏁 Selecione o Grande Prêmio / Sessão atual:", list(dicionario_sessoes.keys()))
+session_key_final = dicionario_sessoes[sessao_selecionada]
+
+# Mostra o ID ativo em tamanho menor para checagem rápida
+st.caption(f"ID da Sessão ativa enviado ao Motor JS: `{session_key_final}`")
 st.markdown("---")
 
 # --- BLOCCO JAVASCRIPT INJETADO (Mínima Latência) ---
@@ -17,12 +45,12 @@ js_telemetry_engine = f"""
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
         <div style="background: #262626; padding: 15px; border-radius: 8px; border-left: 5px solid #FF1801;">
             <h3 style="margin: 0 0 10px 0; color: #FF1801;">STATUS DA PISTA</h3>
-            <div id="track-status" style="font-size: 24px; font-weight: bold; animation: pulse 2s infinite;">Buscando dados da sessão...</div>
+            <div id="track-status" style="font-size: 24px; font-weight: bold; animation: pulse 2s infinite;">Conectando sinal...</div>
         </div>
         <div style="background: #262626; padding: 15px; border-radius: 8px; border-left: 5px solid #00D2C4;">
             <h3 style="margin: 0 0 10px 0; color: #00D2C4;">MAIOR VELOCIDADE EM PISTA</h3>
             <div id="top-speed" style="font-size: 28px; font-weight: bold;">-- <span style="font-size: 14px; color: #888;">km/h</span></div>
-            <div id="top-driver" style="font-size: 14px; color: #aaa;">Aguardando pacotes...</div>
+            <div id="top-driver" style="font-size: 14px; color: #aaa;">Buscando telemetria...</div>
         </div>
     </div>
 
@@ -37,17 +65,17 @@ js_telemetry_engine = f"""
             </tr>
         </thead>
         <tbody id="grid-table-body">
-            <tr><td colspan="4" style="padding: 20px; text-align: center; color: #666;">Conectando com o servidor de cronometragem da F1...</td></tr>
+            <tr><td colspan="4" style="padding: 20px; text-align: center; color: #666;">Aguardando sincronia com a cronometragem oficial...</td></tr>
         </tbody>
     </table>
 </div>
 
 <script>
-const SESSION_KEY = "{session_input}";
+const SESSION_KEY = "{session_key_final}";
 
 async function updateTelemetry() {{
     try {{
-        // 1. Status da pista
+        // 1. Status da Pista (Bandeiras)
         const trackRes = await fetch(`https://openf1.org{{SESSION_KEY}}`);
         const trackData = await trackRes.json();
         if(trackData && trackData.length > 0) {{
@@ -59,16 +87,16 @@ async function updateTelemetry() {{
             else if(latestStatus.flag === "GREEN") statusDiv.style.color = "#00FF00";
             else statusDiv.style.color = "#FFFFFF";
         }} else {{
-            document.getElementById('track-status').innerText = "SEM DADOS ATIVOS";
+            document.getElementById('track-status').innerText = "SEM INFOS AO VIVO";
         }}
 
-        // 2. Velocidade máxima (ajustado limite para buscar dados mesmo em treinos lentos)
-        const carRes = await fetch(`https://openf1.org{{SESSION_KEY}}&speed>250`);
+        // 2. Velocidade Máxima Recente
+        const carRes = await fetch(`https://openf1.org{{SESSION_KEY}}&speed>230`);
         const carData = await carRes.json();
         if(carData && carData.length > 0) {{
             let maxSpeed = 0;
             let fastDriver = "";
-            carData.slice(-100).forEach(d => {{
+            carData.slice(-80).forEach(d => {{
                 if(d.speed > maxSpeed) {{
                     maxSpeed = d.speed;
                     fastDriver = "Carro Número: #" + d.driver_number;
@@ -80,7 +108,7 @@ async function updateTelemetry() {{
             }}
         }}
 
-        // 3. Intervalos de grid
+        // 3. Tabela de Posições e Gaps
         const intervalRes = await fetch(`https://openf1.org{{SESSION_KEY}}`);
         const intervalData = await intervalRes.json();
         if(intervalData && intervalData.length > 0) {{
@@ -94,7 +122,7 @@ async function updateTelemetry() {{
             }});
 
             let tbodyHtml = "";
-            sortedGrid.slice(0, 10).forEach((row, index) => {{
+            sortedGrid.slice(0, 12).forEach((row, index) => {{
                 tbodyHtml += `
                     <tr style="border-bottom: 1px solid #222;">
                         <td style="padding: 12px 5px; font-weight: bold; color: #FF1801;">${{index + 1}}</td>
@@ -106,14 +134,15 @@ async function updateTelemetry() {{
             }});
             document.getElementById('grid-table-body').innerHTML = tbodyHtml;
         }} else {{
-            document.getElementById('grid-table-body').innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #888;">Nenhum carro na pista para esta sessão ainda.</td></tr>';
+            document.getElementById('grid-table-body').innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #888;">Sessão antiga ou sem carros na pista neste momento.</td></tr>';
         }}
 
     }} catch (error) {{
-        console.error("Erro na busca OpenF1:", error);
+        console.error("Erro na busca de dados JS:", error);
     }}
 }}
 
+// Executa o pooling a cada 2 segundos no dispositivo cliente
 setInterval(updateTelemetry, 2000);
 updateTelemetry();
 </script>
@@ -127,5 +156,5 @@ updateTelemetry();
 </style>
 """
 
-components.html(js_telemetry_engine, height=600, scrolling=True)
-st.caption("⚡ Conexão direta com servidores OpenF1 ativa. Altere a Session Key acima de acordo com o GP do final de semana.")
+components.html(js_telemetry_engine, height=650, scrolling=True)
+st.caption("⚡ Sincronização direta com a infraestrutura OpenF1 via JavaScript.")
