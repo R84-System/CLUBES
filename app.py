@@ -4,20 +4,17 @@ import pandas as pd
 
 st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
 
-# Estilos CSS Avançados para Ocultar Barra Lateral, Topo e Criar Layout Limpo
+# Estilos CSS Avançados para Layout Profissional (F1 TV Style & Cards) + Ocultar Barra Superior do Streamlit
 st.markdown(r"""
 <style>
-    /* Força a remoção completa da barra lateral, cabeçalho e barra de carregamento do Streamlit */
-    [data-testid="stSidebar"] { display: none !important; }
-    div[data-testid="stDecoration"] { visibility: hidden; height: 0px; display: none !important; }
-    header { visibility: hidden; height: 0px; display: none !important; }
+    /* Esconde a barra de carregamento e o cabeçalho padrão do Streamlit */
+    div[data-testid="stDecoration"] {visibility: hidden; height: 0px; display: none;}
+    header {visibility: hidden; height: 0px; display: none;}
     
     .stApp {
         background-color: #0b0e14;
         color: #ffffff;
-        padding-top: 0rem;
     }
-    
     .f1-card {
         background: linear-gradient(135deg, #121824 0%, #1a2332 100%);
         border: 1px solid #1f2a3a;
@@ -199,9 +196,7 @@ def get_driver_flag(nationality):
     }
     return flags.get(nationality, "🏁")
 
-# Cabeçalho Principal e Menu de Navegação Horizontal no Topo
-st.markdown("<h2 style='margin: 0 0 10px 0; color: #ffffff;'>🏁 F1 Hub Pro</h2>", unsafe_allow_html=True)
-
+# Menu de Navegação Horizontal no Topo (Acima de tudo)
 menu = st.radio(
     "Navegação",
     ["🏎️ Telemetria ao Vivo", "🏆 Classificação do Campeonato", "📅 Próximos GPs (Calendário)"],
@@ -209,7 +204,7 @@ menu = st.radio(
     label_visibility="collapsed"
 )
 
-st.markdown("<hr style='border: 1px solid #1f2a3a; margin-top: 10px; margin-bottom: 20px;'>", unsafe_allow_html=True)
+st.markdown("<hr style='border: 1px solid #1f2a3a; margin-top: 5px; margin-bottom: 20px;'>", unsafe_allow_html=True)
 
 if menu == "🏎️ Telemetria ao Vivo":
     @st.cache_data(ttl=15)
