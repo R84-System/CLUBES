@@ -1,41 +1,59 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import requests
+from datetime import datetime
 
 # Configuração de Página Ultra-Wide e responsiva
 st.set_page_config(page_title="F1 Ultra-Low Latency Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("<h1 style='text-align: center; color: #FF1801; margin-bottom: 5px;'>🏎️ F1 REAL-TIME TELEMETRY</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #aaa; margin-top: 0px;'>Painel Inteligente Automático — Baixa Latência</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #aaa; margin-top: 0px;'>Apenas Corridas Concluídas ou em Andamento (Filtro Ativo)</p>", unsafe_allow_html=True)
 
 # --- CONFIGURAÇÃO AUTOMÁTICA DE SESSÕES VIA PYTHON ---
-@st.cache_data(ttl=300)  # Atualiza a lista a cada 5 minutos
+@st.cache_data(ttl=60)  # Atualiza a cada 1 minuto para capturar treinos ao vivo
 def buscar_sessoes_ativas():
     try:
-        # Busca as últimas sessões registradas no servidor OpenF1
-        url = "https://api.openf1.org/v1/sessions"
+        url = "https://openf1.org"
         resposta = requests.get(url, timeout=5)
         if resposta.status_code == 200:
             dados = resposta.json()
-            # Inverte para mostrar as mais recentes primeiro e filtra dados válidos
-            dados_recentes = dados[::-1][:25]
+            
+            # Captura a data e hora atual do sistema
+            agora = datetime.utcnow()
+            
             opcoes = {}
-            for s in dados_recentes:
-                # Monta um nome amigável para o menu: Ex: "Monaco (2024) - Race"
-                nome_formatado = f"📍 {s.get('location', 'Desconhecido')} ({s.get('year')}) - {s.get('session_name')}"
-                opcoes[nome_formatado] = str(s.get('session_key'))
-            return opcoes
+            # Varre os dados de trás para frente (mais recentes primeiro)
+            for s in dados[::-1]:
+                data_inicio_str = s.get('date_start')
+                if not data_inicio_str:
+                    continue
+                
+                # Conversão da data do formato ISO da API para objeto datetime do Python
+                try:
+                    # Remove o 'Z' ou fuso horário se houver para comparar em UTC
+                    data_limpa = data_inicio_str.split('+')[0].rstrip('Z')
+                    data_inicio = datetime.strptime(data_limpa, "%Y-%m-%dT%H:%M:%S")
+                except ValueError:
+                    continue
+                
+                # FILTRO SEGURO: Só adiciona se a corrida já começou ou terminou em relação a HOJE
+                if data_inicio <= agora:
+                    nome_formatado = f"📍 {s.get('location', 'Desconhecido')} ({s.get('year')}) - {s.get('session_name')}"
+                    # Evita duplicados e limita o menu às 30 sessões reais mais recentes
+                    if nome_formatado not in opcoes and len(opcoes) < 30:
+                        opcoes[nome_formatado] = str(s.get('session_key'))
+            
+            if opcoes:
+                return opcoes
     except Exception as e:
         pass
-    # Caso o servidor falhe, retorna uma sessão padrão histórica de segurança
-    return {"GP de Mônaco - Corrida Histórica": "9523"}
+    return {"GP de Mônaco (2024) - Race": "9523"}
 
-# Carrega o menu no topo do painel do tablet
+# Carrega o menu filtrado no tablet
 dicionario_sessoes = buscar_sessoes_ativas()
-sessao_selecionada = st.selectbox("🏁 Selecione o Grande Prêmio / Sessão atual:", list(dicionario_sessoes.keys()))
+sessao_selecionada = st.selectbox("🏁 Selecione o Grande Prêmio (Apenas GPs já ocorridos ou Ao Vivo):", list(dicionario_sessoes.keys()))
 session_key_final = dicionario_sessoes[sessao_selecionada]
 
-# Mostra o ID ativo em tamanho menor para checagem rápida
 st.caption(f"ID da Sessão ativa enviado ao Motor JS: `{session_key_final}`")
 st.markdown("---")
 
@@ -75,7 +93,7 @@ const SESSION_KEY = "{session_key_final}";
 
 async function updateTelemetry() {{
     try {{
-        // 1. Status da Pista (Bandeiras)
+        // 1. Status da Pista
         const trackRes = await fetch(`https://openf1.org{{SESSION_KEY}}`);
         const trackData = await trackRes.json();
         if(trackData && trackData.length > 0) {{
@@ -86,12 +104,10 @@ async function updateTelemetry() {{
             else if(latestStatus.flag === "YELLOW") statusDiv.style.color = "#FFCC00";
             else if(latestStatus.flag === "GREEN") statusDiv.style.color = "#00FF00";
             else statusDiv.style.color = "#FFFFFF";
-        }} else {{
-            document.getElementById('track-status').innerText = "SEM INFOS AO VIVO";
         }}
 
         // 2. Velocidade Máxima Recente
-        const carRes = await fetch(`https://openf1.org{{SESSION_KEY}}&speed>230`);
+        const carRes = await fetch(`https://openf1.org{{SESSION_KEY}}&speed>200`);
         const carData = await carRes.json();
         if(carData && carData.length > 0) {{
             let maxSpeed = 0;
@@ -133,28 +149,17 @@ async function updateTelemetry() {{
                 `;
             }});
             document.getElementById('grid-table-body').innerHTML = tbodyHtml;
-        }} else {{
-            document.getElementById('grid-table-body').innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #888;">Sessão antiga ou sem carros na pista neste momento.</td></tr>';
         }}
 
     }} catch (error) {{
-        console.error("Erro na busca de dados JS:", error);
+        console.error("Erro no processamento JS:", error);
     }}
 }}
 
-// Executa o pooling a cada 2 segundos no dispositivo cliente
 setInterval(updateTelemetry, 2000);
 updateTelemetry();
 </script>
-
-<style>
-@keyframes pulse {{
-    0% {{ opacity: 0.8; }}
-    50% {{ opacity: 1; }}
-    100% {{ opacity: 0.8; }}
-}}
-</style>
 """
 
 components.html(js_telemetry_engine, height=650, scrolling=True)
-st.caption("⚡ Sincronização direta com a infraestrutura OpenF1 via JavaScript.")
+st.caption("⚡ Sincronização direta ativa. Corridas futuras ocultadas dinamicamente.")
