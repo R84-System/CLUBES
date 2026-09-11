@@ -14,12 +14,6 @@ except FileNotFoundError:
 
 # Menu Lateral de Navegação
 st.sidebar.title("🏁 F1 Hub Menu")
-
-# Botão para limpar o cache e forçar atualização ao vivo
-if st.sidebar.button("🔄 Atualizar Dados / Limpar Cache"):
-    st.cache_data.clear()
-    st.rerun()
-
 menu = st.sidebar.radio(
     "Navegação",
     ["🏎️ Telemetria ao Vivo", "🏆 Classificação do Campeonato", "📅 Próximos GPs (Calendário)"]
@@ -31,8 +25,7 @@ if menu == "🏎️ Telemetria ao Vivo":
     @st.cache_data(ttl=15)
     def get_latest_session():
         try:
-            # 1. Tenta a rota oficial 'latest'
-            res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest", timeout=5)
+            res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest", timeout=10)
             if res.status_code == 200:
                 j = res.json()
                 if isinstance(j, list) and len(j) > 0:
@@ -40,20 +33,20 @@ if menu == "🏎️ Telemetria ao Vivo":
                 elif isinstance(j, dict) and j:
                     return [j]
             
-            # 2. Fallback robusto: busca todas as sessões e pega a última da lista
-            res_all = requests.get("https://api.openf1.org/v1/sessions", timeout=8)
-            if res_all.status_code == 200:
-                all_data = res_all.json()
-                if isinstance(all_data, list) and len(all_data) > 0:
-                    return [all_data[-1]]
-            
+            # Fallback seguro: pega a última sessão do ano atual se a rota 'latest' falhar ou vier vazia
+            current_year = datetime.now().year
+            res_year = requests.get(f"https://api.openf1.org/v1/sessions?year={current_year}", timeout=10)
+            if res_year.status_code == 200:
+                y_data = res_year.json()
+                if isinstance(y_data, list) and len(y_data) > 0:
+                    return [y_data[-1]]
             return []
         except Exception:
             return []
 
     data = get_latest_session()
 
-    # Tratamento seguro para extrair a sessão
+    # Tratamento seguro para extrair a sessão sem erros de índice ou tipo
     latest_session = None
     if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
         latest_session = data[0]
@@ -64,11 +57,10 @@ if menu == "🏎️ Telemetria ao Vivo":
         session_key = latest_session.get("session_key")
         circuit_name = latest_session.get('circuit_short_name', 'F1')
         year = latest_session.get('year', '')
-        session_name = latest_session.get('session_name', 'Sessão')
-        st.sidebar.success(f"Sessão Ativa: {session_name} - {circuit_name} ({year})")
+        st.sidebar.success(f"Sessão Ativa: {circuit_name} ({year})")
     else:
         session_key = None
-        st.sidebar.warning("Nenhuma sessão encontrada. Clique em 'Atualizar Dados' ao lado.")
+        st.sidebar.warning("Nenhuma sessão encontrada no momento.")
 
     col1, col2 = st.columns([1.5, 1.5])
 
