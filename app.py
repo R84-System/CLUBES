@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import pandas as pd
+from datetime import datetime
 
 st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
 
@@ -24,22 +25,42 @@ if menu == "🏎️ Telemetria ao Vivo":
     @st.cache_data(ttl=15)
     def get_latest_session():
         try:
-            res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest")
-            return res.json()
-        except:
+            res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest", timeout=10)
+            if res.status_code == 200:
+                j = res.json()
+                if isinstance(j, list) and len(j) > 0:
+                    return j
+                elif isinstance(j, dict) and j:
+                    return [j]
+            
+            # Fallback seguro: pega a última sessão do ano atual se a rota 'latest' falhar ou vier vazia
+            current_year = datetime.now().year
+            res_year = requests.get(f"https://api.openf1.org/v1/sessions?year={current_year}", timeout=10)
+            if res_year.status_code == 200:
+                y_data = res_year.json()
+                if isinstance(y_data, list) and len(y_data) > 0:
+                    return [y_data[-1]]
+            return []
+        except Exception:
             return []
 
     data = get_latest_session()
 
-    if data and len(data) > 0:
+    # Tratamento seguro para extrair a sessão sem erros de índice ou tipo
+    latest_session = None
+    if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict):
         latest_session = data[0]
+    elif isinstance(data, dict):
+        latest_session = data
+
+    if latest_session:
         session_key = latest_session.get("session_key")
         circuit_name = latest_session.get('circuit_short_name', 'F1')
         year = latest_session.get('year', '')
         st.sidebar.success(f"Sessão Ativa: {circuit_name} ({year})")
     else:
         session_key = None
-        st.sidebar.warning("Nenhuma sessão ao vivo encontrada.")
+        st.sidebar.warning("Nenhuma sessão encontrada no momento.")
 
     col1, col2 = st.columns([1.5, 1.5])
 
@@ -66,11 +87,11 @@ if menu == "🏎️ Telemetria ao Vivo":
         st.subheader("Torre de Tempos & Segundos")
         if session_key:
             try:
-                drivers_res = requests.get(f"https://api.openf1.org/v1/drivers?session_key={session_key}").json()
-                stints_res = requests.get(f"https://api.openf1.org/v1/stints?session_key={session_key}").json()
-                intervals_res = requests.get(f"https://api.openf1.org/v1/intervals?session_key={session_key}").json()
-                positions_res = requests.get(f"https://api.openf1.org/v1/position?session_key={session_key}").json()
-                laps_res = requests.get(f"https://api.openf1.org/v1/laps?session_key={session_key}").json()
+                drivers_res = requests.get(f"https://api.openf1.org/v1/drivers?session_key={session_key}", timeout=10).json()
+                stints_res = requests.get(f"https://api.openf1.org/v1/stints?session_key={session_key}", timeout=10).json()
+                intervals_res = requests.get(f"https://api.openf1.org/v1/intervals?session_key={session_key}", timeout=10).json()
+                positions_res = requests.get(f"https://api.openf1.org/v1/position?session_key={session_key}", timeout=10).json()
+                laps_res = requests.get(f"https://api.openf1.org/v1/laps?session_key={session_key}", timeout=10).json()
                 
                 if drivers_res and isinstance(drivers_res, list):
                     tires_map = {}
@@ -152,7 +173,7 @@ elif menu == "🏆 Classificação do Campeonato":
     with tab1:
         st.subheader("Mundial de Pilotos")
         try:
-            res = requests.get("https://api.jolpi.ca/ergast/f1/current/driverStandings.json")
+            res = requests.get("https://api.jolpi.ca/ergast/f1/current/driverStandings.json", timeout=10)
             data = res.json()
             standings_list = data["MRData"]["StandingsTable"]["StandingsLists"][0]["DriverStandings"]
             
@@ -172,7 +193,7 @@ elif menu == "🏆 Classificação do Campeonato":
     with tab2:
         st.subheader("Mundial de Construtores")
         try:
-            res = requests.get("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json")
+            res = requests.get("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json", timeout=10)
             data = res.json()
             standings_list = data["MRData"]["StandingsTable"]["StandingsLists"][0]["ConstructorStandings"]
             
@@ -191,7 +212,7 @@ elif menu == "🏆 Classificação do Campeonato":
 elif menu == "📅 Próximos GPs (Calendário)":
     st.title("📅 Calendário de Grandes Prêmios da Temporada")
     try:
-        res = requests.get("https://api.jolpi.ca/ergast/f1/current.json")
+        res = requests.get("https://api.jolpi.ca/ergast/f1/current.json", timeout=10)
         data = res.json()
         races = data["MRData"]["RaceTable"]["Races"]
         
