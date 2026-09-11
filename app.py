@@ -16,19 +16,17 @@ def carregar_id_2026():
         resposta = requests.get(url, timeout=5).json()
         for s in resposta[::-1]:
             if s.get('year') and int(s.get('year')) == 2026:
-                # Retorna a chave da última sessão do campeonato ativa encontrada
                 return str(s.get('session_key'))
     except:
         pass
-    return "11361" # Backup: ID do GP de Monza de 2026
+    return "11361"
 
 session_key_ativa = carregar_id_2026()
 
 st.code(f"Sincronizado na Session Key Oficial de 2026: {session_key_ativa}")
 st.markdown("---")
 
-# 2. MOTOR HÍBRIDO EM JAVASCRIPT COM GRAVAÇÃO EM LOCALSTORAGE
-# Esse motor faz pooling a cada 2s e grava as últimas posições válidas na memória do tablet.
+# 2. MOTOR HÍBRIDO EM JAVASCRIPT CORRIGIDO (CHAVES DUPLAS APLICADAS)
 js_live_engine = f"""
 <div style="background-color: #111; font-family: monospace; color: white; padding: 15px; border-radius: 8px;">
     
@@ -61,17 +59,17 @@ js_live_engine = f"""
 </div>
 
 <script>
-const SESSION_KEY = "{session_key_activa if 'session_key_activa' in locals() else session_key_ativa}";
+const SESSION_KEY = "{session_key_ativa}";
 
 // Dicionário de pilotos para tradução rápida e limpa no JS
 const driversMap = {{
     "1": "Max VERSTAPPEN", "11": "Sergio PEREZ", "16": "Charles LECLERC", "55": "Carlos SAINZ",
     "44": "Lewis HAMILTON", "63": "George RUSSELL", "4": "Lando NORRIS", "81": "Oscar PIASTRI",
     "14": "Fernando ALONSO", "18": "Lance STROLL", "23": "Alex ALBON", "22": "Yuki TSUNODA",
-    "27": "Nico HULKENBERG", "30": "Liam LAWSON", "43": "Franco COLAPINTO", "12": "Kimi ANTONELLI"
+    "27": "Nico HULKENBERG", "30": "Liam LAWSON", "43": "Franco COLAPINTO", "12": "Kimi ANTONELLI",
+    "5": "Sebastian VETTEL", "6": "Nicholas LATIFI", "87": "Oliver BEARMAN"
 }};
 
-// Recupera dados salvos na memória do tablet antes de chamar a internet
 function carregarDadosSalvos() {{
     const backupStatus = localStorage.getItem('f1_pista_status');
     const backupTabela = localStorage.getItem('f1_tabela_corpo');
@@ -94,11 +92,11 @@ async function processarLiveTelemetry() {{
                 const flag = trackData[trackData.length - 1].flag || "GREEN";
                 const pistaDiv = document.getElementById('pista-status');
                 pistaDiv.innerText = flag === "GREEN" ? "🟢 PISTA LIMPA" : flag === "YELLOW" ? "🟡 BANDEIRA AMARELA" : "🔴 VERMELHA INTERROMPIDA";
-                localStorage.setItem('f1_pista_status', pistaDiv.innerText); // Salva na memória
+                localStorage.setItem('f1_pista_status', pistaDiv.innerText);
             }}
         }}
 
-        // 2. Puxa Intervalos Tempo Real (Busca ampla)
+        // 2. Puxa Intervalos Tempo Real
         const intervalRes = await fetch(`https://openf1.org{{SESSION_KEY}}`);
         if(!intervalRes.ok) return;
         
@@ -106,7 +104,6 @@ async function processarLiveTelemetry() {{
         if(intervalData && intervalData.length > 0) {{
             const uniqueDrivers = {{}};
             
-            // Consolida apenas a última volta de cada piloto ativo no grid
             intervalData.forEach(item => {{
                 uniqueDrivers[item.driver_number] = item;
             }});
@@ -132,28 +129,24 @@ async function processarLiveTelemetry() {{
                 `;
             }});
 
-            // Atualiza a tela e grava no banco de dados interno do tablet
             document.getElementById('tabela-corpo').innerHTML = htmlTabela;
             document.getElementById('sync-status').innerText = "Conexão ao vivo ativa: recebendo sinal (" + new Date().toLocaleTimeString() + ")";
             document.getElementById('sync-status').style.color = "#00FF00";
             
-            localStorage.setItem('f1_tabela_corpo', htmlTabela); // Salva a tabela na memória de contingência
+            localStorage.setItem('f1_tabela_corpo', htmlTabela);
         }}
-    } catch (error) {{
+    }} catch (error) {{
         console.log("Servidor em timeout. Mantendo dados salvos em cache.");
         document.getElementById('sync-status').innerText = "Instabilidade detectada. Mantendo últimos dados gravados.";
         document.getElementById('sync-status').style.color = "#FF3333";
     }}
 }}
 
-// Execução inicial
 carregarDadosSalvos();
-// Ciclo de atualização em background sem mexer no Streamlit (A cada 2000 milissegundos)
 setInterval(processarLiveTelemetry, 2000);
 processarLiveTelemetry();
 </script>
 """
 
-# Injeta o componente nativo HTML/JS de alta velocidade sem barra de rolagem
 components.html(js_live_engine, height=600, scrolling=False)
 st.caption("⚡ Motor Híbrido ativado. Se os dados pararem de chegar da API, a classificação final ficará travada e salva na tela.")
