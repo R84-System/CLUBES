@@ -1,719 +1,504 @@
-import streamlit as str_lit
+import streamlit as st
+import requests
+import pandas as pd
 
-str_lit.set_page_config(
-    page_title="Painel F1 Pro - Tempo Real & Pits", page_icon="🏎️", layout="wide"
+st.set_page_config(page_title="F1 Pro Dashboard - EA & F1TV Style", layout="wide")
+
+# Estilos CSS Avançados para Layout Profissional (F1 TV Style & Cards)
+st.markdown(r"""
+<style>
+    .stApp {
+        background-color: #0b0e14;
+        color: #ffffff;
+    }
+    .f1-card {
+        background: linear-gradient(135deg, #121824 0%, #1a2332 100%);
+        border: 1px solid #1f2a3a;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        transition: all 0.3s ease;
+    }
+    .f1-card:hover {
+        border-color: #e10600;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(225,6,0,0.2);
+    }
+    .podium-1 { border-left: 6px solid #ffd700; }
+    .podium-2 { border-left: 6px solid #c0c0c0; }
+    .podium-3 { border-left: 6px solid #cd7f32; }
+    .standard-card { border-left: 6px solid #2563eb; }
+    
+    .badge-pill {
+        background: #1f2a3a;
+        color: #e2e8f0;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: inline-block;
+    }
+    .metric-value {
+        font-size: 1.4rem;
+        font-weight: 800;
+        color: #ffffff;
+    }
+    .metric-label {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* Efeito de Pulso para Indicador Ao Vivo */
+    @keyframes pulse {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .live-dot {
+        height: 10px;
+        width: 10px;
+        background-color: #ef4444;
+        border-radius: 50%;
+        display: inline-block;
+        box-shadow: 0 0 8px #ef4444;
+        animation: pulse 1.5s infinite;
+    }
+
+    /* Estilo F1 TV Timing Tower Cards */
+    .timing-container {
+        max-height: 520px;
+        overflow-y: auto;
+        padding-right: 5px;
+    }
+    .timing-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #131822;
+        border: 1px solid #1f2a3a;
+        border-left: 5px solid #2563eb;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin-bottom: 6px;
+        font-family: sans-serif;
+    }
+    .timing-pos-1 { border-left-color: #e10600; background: linear-gradient(90deg, #2a1215 0%, #131822 100%); }
+    .timing-pos-2, .timing-pos-3 { border-left-color: #ffd700; }
+    
+    .timing-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .pit-badge {
+        background: #db2777;
+        color: #ffffff;
+        font-size: 0.6rem;
+        font-weight: 800;
+        padding: 3px 6px;
+        border-radius: 4px;
+        text-align: center;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .timing-pos {
+        background: #1f2a3a;
+        color: #ffffff;
+        font-weight: 900;
+        font-size: 0.85rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        min-width: 28px;
+        text-align: center;
+    }
+    .timing-driver {
+        font-weight: 800;
+        color: #ffffff;
+        font-size: 0.9rem;
+        letter-spacing: 0.5px;
+    }
+    .timing-team {
+        color: #94a3b8;
+        font-size: 0.7rem;
+    }
+    .tyre-badge {
+        font-size: 0.65rem;
+        font-weight: 800;
+        padding: 2px 6px;
+        border-radius: 4px;
+        text-align: center;
+        min-width: 18px;
+    }
+    .tyre-soft { background: #da291c; color: #ffffff; }
+    .tyre-medium { background: #ffd100; color: #000000; }
+    .tyre-hard { background: #ffffff; color: #000000; }
+    .tyre-unknown { background: #475569; color: #ffffff; }
+
+    .timing-right {
+        text-align: right;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .timing-time {
+        font-weight: 700;
+        color: #f1f5f9;
+        font-size: 0.85rem;
+    }
+
+    /* Mini Setores */
+    .mini-sector {
+        display: inline-block;
+        width: 6px;
+        height: 12px;
+        margin-right: 2px;
+        border-radius: 2px;
+        background: #475569;
+    }
+    .ms-purple { background: #a855f7; }
+    .ms-green { background: #22c55e; }
+    .ms-yellow { background: #eab308; }
+</style>
+""", unsafe_allow_html=True)
+
+# Tradutor de Nomes de Sessão da API para Português Amigável
+def translate_session_name(session_name):
+    if not session_name:
+        return "Sessão ao Vivo"
+    mapping = {
+        "Practice 1": "Treino Livre 1 (TL1)",
+        "Practice 2": "Treino Livre 2 (TL2)",
+        "Practice 3": "Treino Livre 3 (TL3)",
+        "Qualifying": "Classificação (Q1 / Q2 / Q3)",
+        "Sprint": "Corrida Sprint",
+        "Race": "Corrida Principal",
+        "Sprint Shootout": "Sprint Shootout",
+        "Sprint Qualifying": "Classificação Sprint"
+    }
+    return mapping.get(session_name, session_name)
+
+# Mapeamento de Bandeiras por Nacionalidade
+def get_driver_flag(nationality):
+    flags = {
+        "British": "🇬🇧", "Dutch": "🇳🇱", "Monegasque": "🇲🇨", "Spanish": "🇪🇸",
+        "Mexican": "🇲🇽", "Italian": "🇮🇹", "French": "🇫🇷", "German": "🇩🇪",
+        "Australian": "🇦🇺", "Thai": "🇹🇭", "Japanese": "🇯🇵", "Chinese": "🇨🇳",
+        "Canadian": "🇨🇦", "Danish": "🇩🇰", "Finnish": "🇫🇮", "American": "🇺🇸",
+        "Argentine": "🇦🇷", "Brazilian": "🇧🇷", "Swiss": "🇨🇭", "New Zealander": "🇳🇿",
+        "Austrian": "🇦🇹", "Polish": "🇵🇱"
+    }
+    return flags.get(nationality, "🏁")
+
+# Mapeamento de Escudos/Ícones por Equipe
+def get_team_badge(team_name):
+    badges = {
+        "Ferrari": "🔴 🐎", "Red Bull": "🔵 🐂", "Mercedes": "⬛ ⭐️", "McLaren": "🟠 🏎️",
+        "Aston Martin": "💚 🏎️", "Alpine": "💙 🇫🇷", "Williams": "🔷 🇬🇧", "RB": "⚪ 🏎️",
+        "Kick Sauber": "🟢 🇨🇭", "Haas F1 Team": "⬜ 🇺🇸", "Audi": "🩶 🇩🇪"
+    }
+    for key, badge in badges.items():
+        if key.lower() in team_name.lower():
+            return badge
+    return "🏎️ F1"
+
+# Menu Lateral de Navegação
+st.sidebar.title("🏁 F1 Hub Pro")
+menu = st.sidebar.radio(
+    "Navegação",
+    ["🏎️ Telemetria ao Vivo", "🏆 Classificação do Campeonato", "📅 Próximos GPs (Calendário)"]
 )
 
-str_lit.markdown(
-    """
-    <style>
-        .block-container {
-            padding-top: 0.4rem !important;
-            padding-bottom: 0rem !important;
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
-        }
-        header {visibility: hidden;}
-        footer {visibility: hidden;}
-    </style>
-""",
-    unsafe_allow_html=True,
-)
+if menu == "🏎️ Telemetria ao Vivo":
+    @st.cache_data(ttl=15)
+    def get_latest_session():
+        try:
+            res = requests.get("https://api.openf1.org/v1/sessions?session_key=latest")
+            return res.json()
+        except:
+            return []
 
-f1_dashboard_html = """
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <style>
-        :root {
-            background-color: #0e1117;
-            color: #fafafa;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        }
-        body {
-            margin: 0;
-            padding: 4px;
-            background-color: #0e1117;
-            color: #fafafa;
-        }
-        .sticky-header-container {
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            background-color: #0e1117;
-            padding-bottom: 6px;
-        }
-        @keyframes blink {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.3; transform: scale(0.95); }
-            100% { opacity: 1; transform: scale(1); }
-        }
-        .blinking-dot {
-            height: 9px;
-            width: 9px;
-            background-color: #ef4444;
-            border-radius: 50%;
-            display: inline-block;
-            animation: blink 2s infinite ease-in-out;
-            margin-right: 5px;
-            box-shadow: 0 0 8px #ef4444;
-        }
-        .card {
-            background-color: #1e293b;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 10px;
-        }
-        .controls {
-            margin-bottom: 8px;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            align-items: flex-end;
-            background: #dc2626;
-            padding: 10px;
-            border-radius: 8px;
-            border: 1px solid #f87171;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        }
-        .controls select {
-            background: #0f172a;
-            color: #fff;
-            border: 1px solid #334155;
-            padding: 6px 10px;
-            border-radius: 6px;
-            font-size: 13px;
-            outline: none;
-        }
-        .standings-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #1e293b;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #334155;
-            margin-top: 10px;
-        }
-        .standings-table th, .standings-table td {
-            padding: 8px 10px;
-            text-align: center;
-            font-size: 12px;
-        }
-        .standings-table th {
-            background-color: #0f172a;
-            color: #f87171;
-            font-weight: bold;
-        }
-        .standings-table tr:nth-child(even) {
-            background-color: #162032;
-        }
-        .standings-table td:nth-child(2) {
-            text-align: left;
-            font-weight: bold;
-        }
-        .circuit-canvas-container {
-            position: relative;
-            background: #090d16;
-            border: 1px solid #334155;
-            border-radius: 8px;
-            height: 380px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-        }
-        .waiting-banner {
-            background: #0f172a;
-            border: 1px dashed #f59e0b;
-            padding: 15px;
-            text-align: center;
-            border-radius: 8px;
-            color: #ffb020;
-            font-weight: bold;
-            margin-bottom: 12px;
-            font-size: 13px;
-        }
-        .alert-banner {
-            padding: 10px 15px;
-            border-radius: 6px;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 10px;
-            font-size: 13px;
-            display: none;
-        }
-        .badge-pit {
-            background-color: #eab308;
-            color: #000;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: bold;
-            margin-left: 5px;
-            display: inline-block;
-        }
-        .badge-out {
-            background-color: #ef4444;
-            color: #fff;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: bold;
-            margin-left: 5px;
-            display: inline-block;
-        }
-    </style>
-</head>
-<body>
-    <div class="sticky-header-container">
-        <h3 style="margin-top:0; margin-bottom:6px; display:flex; align-items:center; gap:8px; font-size: 18px;">
-            🏎️ F1 Pro - Central de Classificação & Tempo Real
-        </h3>
+    data = get_latest_session()
+
+    if data and len(data) > 0:
+        latest_session = data[0]
+        session_key = latest_session.get("session_key")
+        circuit_name = latest_session.get('circuit_short_name', 'F1')
+        year = latest_session.get('year', '')
+        raw_session_name = latest_session.get('session_name', '')
+        session_title = translate_session_name(raw_session_name)
         
-        <div id="raceControlAlert" class="alert-banner"></div>
+        st.sidebar.success(f"Sessão: {session_title}\n\n📍 {circuit_name} ({year})")
+    else:
+        session_key = None
+        session_title = "Aguardando Sessão"
+        circuit_name = "Circuito F1"
+        year = ""
+        st.sidebar.warning("Nenhuma sessão ao vivo encontrada.")
 
-        <div class="controls">
+    # Banner Superior Dinâmico indicando o status atual ao vivo
+    banner_html = f"""
+    <div style="display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #121824 0%, #1a2332 100%); border: 1px solid #1f2a3a; border-left: 5px solid #e10600; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <span class="live-dot"></span>
             <div>
-                <label style="font-size:11px; color:#fee2e2; display:block; margin-bottom:2px; font-weight:bold;">Visualização</label>
-                <select id="viewSelect" onchange="switchView()">
-                    <option value="standings" selected>🏆 Classificação & Grid (Pré-Sessão)</option>
-                    <option value="live">⚡ Tempo Real (AO VIVO)</option>
-                    <option value="calendar">📅 Calendário</option>
-                </select>
-            </div>
-            <div id="gpInfoContainer" style="color: #fff; font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 10px; padding-bottom: 4px; flex-wrap: wrap;">
-                📍 GP Atual: <span id="currentGpName" style="color: #facc15;">Carregando...</span>
-                <span id="sessionTypeBadge" style="background: #1e293b; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #facc15; border: 1px solid #334155;">Sessão: --</span>
-                <span id="sessionDetailsBadge" style="background: #0f172a; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #f87171; border: 1px solid #334155;">Status: Pronto</span>
-                <span id="lapCounterBadge" style="background: #0f172a; padding: 3px 8px; border-radius: 4px; font-size: 11px; color: #38bdf8; border: 1px solid #334155; display:none;">Volta: --</span>
+                <span style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; display: block;">Sessão Ativa na Pista</span>
+                <span style="font-size: 1.1rem; font-weight: 900; color: #ffffff; letter-spacing: 0.5px;">{session_title}</span>
             </div>
         </div>
+        <div style="text-align: right;">
+            <span style="font-size: 0.8rem; color: #38bdf8; font-weight: 700; background: #1f2a3a; padding: 4px 10px; border-radius: 6px;">📍 {circuit_name} — {year}</span>
+        </div>
     </div>
+    """
+    st.markdown(banner_html, unsafe_allow_html=True)
 
-    <div id="mainContainer">Carregando dados da Fórmula 1...</div>
+    col1, col2 = st.columns([1.4, 1.6])
 
-    <script>
-        let currentView = 'standings';
-        let liveInterval = null;
+    with col1:
+        st.subheader("Circuito em Tempo Real")
+        try:
+            with open("static/tracker.js", "r", encoding="utf-8") as f:
+                js_code = f.read()
+        except FileNotFoundError:
+            js_code = "// tracker.js não encontrado"
 
-        function switchView() {
-            currentView = document.getElementById('viewSelect').value;
-            if (liveInterval) {
-                clearInterval(liveInterval);
-                liveInterval = null;
-            }
-            loadData();
-        }
+        track_html = f"""
+        <div class="track-container" style="position:relative; width:100%; height:520px; background:#0b0e14; border-radius:12px; border:1px solid #1f2a3a; box-shadow: 0 4px 15px rgba(0,0,0,0.4);">
+            <canvas id="f1Canvas" style="width:100%; height:100%;"></canvas>
+        </div>
+        <script>
+            window.sessionKey = "{session_key}";
+            {js_code}
+        </script>
+        """
+        st.components.v1.html(track_html, height=540)
 
-        async function loadData() {
-            let container = document.getElementById('mainContainer');
-            if (currentView === 'standings') {
-                container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">Carregando Classificação do Campeonato e Grid...</div>`;
-                fetchStandings();
-            } else if (currentView === 'live') {
-                // Monta a estrutura estática da tela AO VIVO apenas uma vez
-                container.innerHTML = `
-                    <div id="statusBanner" class="waiting-banner">
-                        ⏳ SESSÃO NÃO INICIADA OU AGUARDANDO SINAL AO VIVO...<br>
-                        <span style="font-size:12px; color:#94a3b8; font-weight:normal;">O painel atualizará automaticamente assim que a pista estiver ativa.</span>
-                    </div>
-                    <div class="card">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                            <span style="font-size: 14px; font-weight: bold; color: #f87171;">
-                                <span class="blinking-dot"></span> TELEMETRIA & CIRCUITO EM TEMPO REAL
-                            </span>
-                            <span id="sessionTitle" style="font-size: 12px; color: #94a3b8;">Aguardando transmissão...</span>
-                        </div>
-                        <div class="circuit-canvas-container">
-                            <canvas id="trackCanvas" width="700" height="360" style="background: #090d16; border-radius: 6px;"></canvas>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div style="font-weight: bold; color: #f87171; margin-bottom: 6px; font-size: 13px;">🏎️ Grid, Tempos de Volta, Pits, Pneus & Voltas</div>
-                        <table id="liveTable" class="standings-table">
-                            <thead>
-                                <tr>
-                                    <th>Pos</th>
-                                    <th>Piloto</th>
-                                    <th>Equipe / Escudo</th>
-                                    <th>Nº</th>
-                                    <th>Tempo da Volta</th>
-                                    <th>Gap p/ Líder</th>
-                                    <th>Intervalo</th>
-                                    <th>Pneus</th>
-                                    <th>Volta Atual</th>
-                                </tr>
-                            </thead>
-                            <tbody id="liveTableBody">
-                                <tr><td colspan="9" style="text-align:center; color:#94a3b8; padding:20px;">Aguardando início do evento ao vivo...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                `;
-                fetchLiveTelemetry();
-                if (!liveInterval) {
-                    liveInterval = setInterval(() => {
-                        if (currentView === 'live') fetchLiveTelemetry();
-                    }, 5000);
-                }
-            } else if (currentView === 'calendar') {
-                container.innerHTML = `<div style="text-align:center; color:#94a3b8; padding:20px;">Carregando calendário de GPs...</div>`;
-                fetchCalendar();
-            }
-        }
+    with col2:
+        st.subheader("Torre de Tempos")
+        
+        modo_tempo = st.radio(
+            "Visualizar diferença:",
+            ["Intervalo (Carro da Frente)", "Diferença para o Líder (Gap)"],
+            horizontal=True,
+            label_visibility="collapsed"
+        )
+        is_interval = (modo_tempo == "Intervalo (Carro da Frente)")
 
-        function getTeamShield(teamName) {
-            if (!teamName) return '🏎️';
-            let t = teamName.toLowerCase();
-            if (t.includes('red bull')) return '🐂 RBR';
-            if (t.includes('ferrari')) return '🐎 Ferrari';
-            if (t.includes('mercedes')) return '⭐ Mercedes';
-            if (t.includes('mclaren')) return '🧡 McLaren';
-            if (t.includes('aston martin')) return '🟩 Aston Martin';
-            if (t.includes('alpine')) return '🔵 Alpine';
-            if (t.includes('williams')) return '💙 Williams';
-            if (t.includes('rb') || t.includes('visa')) return '🐂 VCARB';
-            if (t.includes('sauber') || t.includes('kick')) return '💚 Sauber';
-            if (t.includes('haas')) return '🔲 Haas';
-            return '🛡️ ' + teamName;
-        }
-
-        function getTyreBadge(compound) {
-            if (!compound) return '<span style="color:#94a3b8">-</span>';
-            let c = compound.toUpperCase();
-            if (c.includes('SOFT') || c === 'SOFT') return '<span style="color:#ef4444; font-weight:bold;">🔴 SOFT</span>';
-            if (c.includes('MEDIUM') || c === 'MEDIUM') return '<span style="color:#eab308; font-weight:bold;">🟡 MED</span>';
-            if (c.includes('HARD') || c === 'HARD') return '<span style="color:#f8fafc; font-weight:bold;">⚪ HARD</span>';
-            if (c.includes('INTER') || c === 'INTERMEDIATE') return '<span style="color:#22c55e; font-weight:bold;">🟢 INTER</span>';
-            if (c.includes('WET') || c === 'WET') return '<span style="color:#3b82f6; font-weight:bold;">🔵 WET</span>';
-            return `<span style="color:#facc15;">${c}</span>`;
-        }
-
-        function formatLapTime(seconds) {
-            if (!seconds || isNaN(seconds)) return '-';
-            let mins = Math.floor(seconds / 60);
-            let secs = (seconds % 60).toFixed(3);
-            return mins > 0 ? `${mins}:${secs < 10 ? '0' : ''}${secs}` : `${secs}s`;
-        }
-
-        function classifySessionName(name) {
-            if (!name) return { label: 'Sessão F1', type: 'other' };
-            let n = name.toLowerCase();
-            if (n.includes('practice') || n.includes('treino')) return { label: '🛠️ Treino Livre', type: 'practice' };
-            if (n.includes('qualifying') || n.includes('quali')) {
-                if (n.includes('q1')) return { label: '⏱️ Q1', type: 'quali' };
-                if (n.includes('q2')) return { label: '⏱️ Q2', type: 'quali' };
-                if (n.includes('q3')) return { label: '⏱️ Q3', type: 'quali' };
-                return { label: '⏱️ Qualificação', type: 'quali' };
-            }
-            if (n.includes('sprint')) return { label: '🏁 Sprint', type: 'sprint' };
-            if (n.includes('race') || n.includes('grand prix') || n.includes('corrida')) return { label: '🏁 Corrida Oficial', type: 'race' };
-            return { label: name, type: 'other' };
-        }
-
-        const safeFetch = async (url) => {
-            try { let r = await fetch(url); return await r.json(); } catch(e) { return []; }
-        };
-
-        async function fetchLiveTelemetry() {
-            let sessData = await safeFetch('https://api.openf1.org/v1/sessions?session_key=latest');
-            let sessionKey = 'latest';
-            let sessionName = 'Sessão AO VIVO';
-            let circuitName = 'Circuito';
-            let year = new Date().getFullYear();
-
-            if (sessData.length > 0) {
-                let s = sessData[0];
-                sessionKey = s.session_key;
-                sessionName = s.session_name || "Sessão F1";
-                circuitName = s.circuit_short_name || s.location || "Circuito";
-                year = s.year || year;
-                let gpElem = document.getElementById('currentGpName');
-                if (gpElem) gpElem.innerText = `${s.location || circuitName} (${year})`;
+        if session_key:
+            try:
+                drivers_res = requests.get(f"https://api.openf1.org/v1/drivers?session_key={session_key}").json()
+                stints_res = requests.get(f"https://api.openf1.org/v1/stints?session_key={session_key}").json()
+                intervals_res = requests.get(f"https://api.openf1.org/v1/intervals?session_key={session_key}").json()
+                positions_res = requests.get(f"https://api.openf1.org/v1/position?session_key={session_key}").json()
+                laps_res = requests.get(f"https://api.openf1.org/v1/laps?session_key={session_key}").json()
+                pits_res = requests.get(f"https://api.openf1.org/v1/pits?session_key={session_key}").json()
                 
-                let sessionMeta = classifySessionName(sessionName);
-                let typeBadge = document.getElementById('sessionTypeBadge');
-                let detailsBadge = document.getElementById('sessionDetailsBadge');
-                if (typeBadge) typeBadge.innerText = sessionMeta.label;
-                if (detailsBadge) detailsBadge.innerText = `Status: AO VIVO`;
-                let sessionTitleElem = document.getElementById('sessionTitle');
-                if(sessionTitleElem) {
-                    sessionTitleElem.innerText = `${circuitName} - ${sessionName}`;
-                }
-            }
+                in_pit_drivers = set()
+                if pits_res and isinstance(pits_res, list):
+                    for p in pits_res:
+                        if p.get("pit_duration") is None:
+                            in_pit_drivers.add(p.get("driver_number"))
 
-            let [driversData, posData, intervalsData, stintsData, lapsData, locData, raceControlData, pitsData] = await Promise.all([
-                safeFetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/intervals?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/stints?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/laps?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/race_control?session_key=${sessionKey}`),
-                safeFetch(`https://api.openf1.org/v1/pits?session_key=${sessionKey}`)
-            ]);
-
-            if (!posData || posData.length === 0 || !locData || locData.length === 0) {
-                sessionKey = 9480; 
-                driversData = await safeFetch(`https://api.openf1.org/v1/drivers?session_key=${sessionKey}`);
-                posData = await safeFetch(`https://api.openf1.org/v1/position?session_key=${sessionKey}`);
-                intervalsData = await safeFetch(`https://api.openf1.org/v1/intervals?session_key=${sessionKey}`);
-                stintsData = await safeFetch(`https://api.openf1.org/v1/stints?session_key=${sessionKey}`);
-                lapsData = await safeFetch(`https://api.openf1.org/v1/laps?session_key=${sessionKey}`);
-                locData = await safeFetch(`https://api.openf1.org/v1/location?session_key=${sessionKey}`);
-                raceControlData = await safeFetch(`https://api.openf1.org/v1/race_control?session_key=${sessionKey}`);
-                pitsData = await safeFetch(`https://api.openf1.org/v1/pits?session_key=${sessionKey}`);
-            } else {
-                let banner = document.getElementById('statusBanner');
-                if (banner) banner.style.display = 'none';
-            }
-
-            let alertBox = document.getElementById('raceControlAlert');
-            if (Array.isArray(raceControlData) && raceControlData.length > 0) {
-                let latestRC = raceControlData[raceControlData.length - 1];
-                let msg = (latestRC.message || '').toUpperCase();
-                let flag = (latestRC.flag || '').toUpperCase();
-                let category = (latestRC.category || '').toUpperCase();
-
-                let alertText = "";
-                let alertBg = "#1e293b";
-                let alertColor = "#fff";
-                let showAlert = false;
-
-                if (msg.includes('SAFETY CAR') || category.includes('SAFETYCAR')) {
-                    alertText = `🚨 ALERTA DIREÇÃO DE PROVA: ${latestRC.message}`;
-                    alertBg = "#ca8a04"; alertColor = "#000"; showAlert = true;
-                } else if (flag === 'YELLOW' || msg.includes('YELLOW FLAG')) {
-                    alertText = `⚠️ BANDEIRA AMARELA: ${latestRC.message}`;
-                    alertBg = "#eab308"; alertColor = "#000"; showAlert = true;
-                } else if (flag === 'RED' || msg.includes('RED FLAG')) {
-                    alertText = `🛑 BANDEIRA VERMELHA: ${latestRC.message}`;
-                    alertBg = "#dc2626"; alertColor = "#fff"; showAlert = true;
-                } else if (flag === 'GREEN' || msg.includes('TRACK CLEAR')) {
-                    alertText = `🟢 PISTA LIVRE / BANDEIRA VERDE`;
-                    alertBg = "#16a34a"; alertColor = "#fff"; showAlert = true;
-                } else if (msg.includes('CHECKERED') || flag === 'CHEQUERED') {
-                    alertText = `🏁 BANDEIRA QUADRICULADA! FIM DE SESSÃO.`;
-                    alertBg = "#334155"; alertColor = "#facc15"; showAlert = true;
-                }
-
-                if (showAlert && alertBox) {
-                    alertBox.style.display = 'block';
-                    alertBox.style.background = alertBg;
-                    alertBox.style.color = alertColor;
-                    alertBox.innerHTML = alertText;
-                } else if (alertBox) {
-                    alertBox.style.display = 'none';
-                }
-            } else if (alertBox) {
-                alertBox.style.display = 'none';
-            }
-
-            let driverMap = {};
-            if (Array.isArray(driversData)) {
-                driversData.forEach(d => {
-                    driverMap[d.driver_number] = {
-                        name: d.broadcast_name || d.full_name,
-                        team: d.team_name,
-                        color: "#" + (d.team_colour || "ff1801")
-                    };
-                });
-            }
-
-            let latestPositions = {};
-            if (Array.isArray(posData)) {
-                posData.forEach(p => { latestPositions[p.driver_number] = p.position; });
-            }
-
-            let latestIntervals = {};
-            if (Array.isArray(intervalsData)) {
-                intervalsData.forEach(i => {
-                    latestIntervals[i.driver_number] = {
-                        gap: i.gap_to_leader !== null ? (i.gap_to_leader === 0 ? 'Líder' : `+${i.gap_to_leader}s`) : '-',
-                        interval: i.interval !== null ? `+${i.interval}s` : '-'
-                    };
-                });
-            }
-
-            let latestStints = {};
-            if (Array.isArray(stintsData)) {
-                stintsData.forEach(st => { latestStints[st.driver_number] = st.compound; });
-            }
-
-            let maxLapNum = 0;
-            let driverCurrentLap = {};
-            let driverLastLapTime = {};
-            let fastestLapDriverNum = null;
-            let minLapTime = Infinity;
-
-            if (Array.isArray(lapsData)) {
-                lapsData.forEach(l => {
-                    if (l.lap_number > maxLapNum) maxLapNum = l.lap_number;
-                    if (!driverCurrentLap[l.driver_number] || l.lap_number > driverCurrentLap[l.driver_number]) {
-                        driverCurrentLap[l.driver_number] = l.lap_number;
-                    }
-                    if (!driverLastLapTime[l.driver_number] || l.lap_number >= driverLastLapTime[l.driver_number].lap) {
-                        driverLastLapTime[l.driver_number] = { lap: l.lap_number, duration: l.lap_duration };
-                    }
-                    if (l.lap_duration && l.lap_duration < minLapTime) {
-                        minLapTime = l.lap_duration;
-                        fastestLapDriverNum = l.driver_number;
-                    }
-                });
-            }
-
-            let inPitSet = {};
-            if (Array.isArray(pitsData)) {
-                pitsData.forEach(p => {
-                    if (p.lap_number === driverCurrentLap[p.driver_number] && (p.pit_duration === null || p.pit_duration === undefined)) {
-                        inPitSet[p.driver_number] = true;
-                    }
-                });
-            }
-
-            let totalLapsEst = maxLapNum > 0 ? Math.max(maxLapNum, 57) : 57;
-            let currentLapBadge = document.getElementById('lapCounterBadge');
-            if (currentLapBadge) {
-                currentLapBadge.style.display = 'inline-block';
-                currentLapBadge.innerText = `Volta: ${maxLapNum || '--'} / ${totalLapsEst}`;
-            }
-
-            let isRaceFinished = false;
-            let sessionMeta = classifySessionName(sessionName);
-            if (sessionMeta.type === 'race' && maxLapNum >= totalLapsEst - 1 && maxLapNum > 0) {
-                isRaceFinished = true;
-            }
-
-            let sortedDrivers = Object.keys(latestPositions).sort((a,b) => latestPositions[a] - latestPositions[b]);
-            if (sortedDrivers.length === 0) sortedDrivers = Object.keys(driverMap);
-
-            let tbody = document.getElementById('liveTableBody');
-            if (!tbody) return;
-
-            // Atualiza linha por linha sem apagar a tabela (evita totalmente o piscar)
-            sortedDrivers.forEach((num, index) => {
-                let dInfo = driverMap[num] || { name: `Piloto #${num}`, team: 'Equipe F1', color: '#facc15' };
-                let pos = latestPositions[num] || (index + 1);
-                let gapInfo = latestIntervals[num] || { gap: '-', interval: '-' };
-                let tyre = latestStints[num] || 'SOFT';
-                let tyreBadgeHtml = getTyreBadge(tyre);
-                let teamShield = getTeamShield(dInfo.team);
-                let dLap = driverCurrentLap[num] || maxLapNum || '-';
+                current_lap = 1
+                total_laps = 57
+                if laps_res and isinstance(laps_res, list):
+                    df_laps = pd.DataFrame(laps_res)
+                    if not df_laps.empty and "lap_number" in df_laps.columns:
+                        current_lap = int(df_laps["lap_number"].max())
                 
-                let lapTimeData = driverLastLapTime[num];
-                let formattedTime = lapTimeData ? formatLapTime(lapTimeData.duration) : '-';
+                if "Race" in raw_session_name:
+                    if current_lap == 1:
+                        st.markdown("""<div style="background: linear-gradient(90deg, #b91c1c, #ef4444); color: white; padding: 6px 12px; border-radius: 6px; font-weight: 800; text-align: center; margin-bottom: 8px; font-size: 0.8rem;">🔴🔴🔴🔴🔴 LARGADA AUTORIZADA — VOLTA 1</div>""", unsafe_allow_html=True)
+                    elif current_lap >= total_laps:
+                        st.markdown("""<div style="background: linear-gradient(90deg, #1e293b, #334155); color: white; padding: 6px 12px; border-radius: 6px; font-weight: 800; text-align: center; margin-bottom: 8px; font-size: 0.8rem; border: 1px dashed #ffffff;">🏁 BANDEIRA QUADRICULADA — FIM DE CORRIDA! 🏁</div>""", unsafe_allow_html=True)
+                    else:
+                        st.markdown(f"""<div style="display: flex; justify-content: space-between; background: #121824; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #1f2a3a;"><span style="font-size: 0.8rem; color: #94a3b8;">Total de Voltas do GP: <b>{total_laps}</b></span><span style="font-size: 0.85rem; font-weight: 800; color: #38bdf8;">🟢 Volta Atual: {current_lap} / {total_laps}</span></div>""", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""<div style="display: flex; justify-content: space-between; background: #121824; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid #1f2a3a;"><span style="font-size: 0.8rem; color: #94a3b8;">Sessão: <b>{session_title}</b></span><span style="font-size: 0.85rem; font-weight: 800; color: #38bdf8;">⏱️ Voltas Registradas: {current_lap}</span></div>""", unsafe_allow_html=True)
 
-                let isFastest = (parseInt(num) === parseInt(fastestLapDriverNum));
-                let fastestBadge = isFastest ? ' <span title="Volta Mais Rápida" style="cursor:help;">⏱️</span>' : '';
-                let winnerBadge = (isRaceFinished && pos === 1) ? ' <span>🏁</span>' : '';
-                let pitBadge = inPitSet[num] ? ' <span class="badge-pit">PIT</span>' : '';
-                let isAbandoned = (maxLapNum > 5 && dLap !== '-' && (maxLapNum - dLap > 5));
-                let outBadge = isAbandoned ? ' <span class="badge-out">OUT LAP</span>' : '';
+                if drivers_res and isinstance(drivers_res, list):
+                    tires_map = {}
+                    if stints_res and isinstance(stints_res, list):
+                        for s in stints_res:
+                            d_num = s.get("driver_number")
+                            if d_num:
+                                tires_map[d_num] = s.get("compound", "N/A")
+                    
+                    pos_map = {}
+                    if positions_res and isinstance(positions_res, list):
+                        df_pos = pd.DataFrame(positions_res)
+                        if not df_pos.empty and "driver_number" in df_pos.columns and "position" in df_pos.columns:
+                            df_pos = df_pos.sort_values("date")
+                            for _, row in df_pos.drop_duplicates(subset=["driver_number"], keep="last").iterrows():
+                                pos_map[row["driver_number"]] = row["position"]
 
-                let rowId = `row-driver-${num}`;
-                let row = document.getElementById(rowId);
+                    interval_map = {}
+                    gap_map = {}
+                    if intervals_res and isinstance(intervals_res, list):
+                        df_int = pd.DataFrame(intervals_res)
+                        if not df_int.empty:
+                            df_int = df_int.sort_values("date")
+                            for _, row in df_int.drop_duplicates(subset=["driver_number"], keep="last").iterrows():
+                                d_num = row.get("driver_number")
+                                inter = row.get('interval')
+                                gap = row.get('gap_to_leader')
+                                if d_num:
+                                    interval_map[d_num] = f"+{inter}s" if inter is not None else "-"
+                                    gap_map[d_num] = f"+{gap}s" if gap is not None else "-"
+                    
+                    best_lap_map = {}
+                    overall_fastest_driver = None
+                    if laps_res and isinstance(laps_res, list):
+                        df_laps = pd.DataFrame(laps_res)
+                        if not df_laps.empty and "lap_duration" in df_laps.columns and "driver_number" in df_laps.columns:
+                            df_valid = df_laps.dropna(subset=["lap_duration"])
+                            if not df_valid.empty:
+                                min_row = df_valid.loc[df_valid["lap_duration"].idxmin()]
+                                overall_fastest_driver = min_row["driver_number"]
+                                
+                                for d_num, group in df_valid.groupby("driver_number"):
+                                    min_duration = group["lap_duration"].min()
+                                    mins = int(min_duration // 60)
+                                    remaining = min_duration % 60
+                                    time_str = f"{mins}:{remaining:06.3f}" if mins > 0 else f"{remaining:06.3f}"
+                                    best_lap_map[d_num] = time_str
 
-                if (!row) {
-                    row = document.createElement('tr');
-                    row.id = rowId;
-                    row.innerHTML = `
-                        <td id="cell-pos-${num}"><b>P${pos}</b></td>
-                        <td id="cell-name-${num}" style="border-left: 4px solid ${dInfo.color}; text-align: left; padding-left: 8px;">${dInfo.name}</td>
-                        <td id="cell-team-${num}">${teamShield}</td>
-                        <td id="cell-num-${num}">#${num}</td>
-                        <td id="cell-time-${num}"><span style="color:#facc15; font-weight:bold;">${formattedTime}</span></td>
-                        <td id="cell-gap-${num}"><span style="color:#f87171; font-weight:bold;">${gapInfo.gap}</span></td>
-                        <td id="cell-interval-${num}"><span style="color:#38bdf8;">${gapInfo.interval}</span></td>
-                        <td id="cell-tyre-${num}">${tyreBadgeHtml}</td>
-                        <td id="cell-lap-${num}"><b>${dLap}</b></td>
-                    `;
-                    tbody.appendChild(row);
-                } else {
-                    // Atualiza apenas os textos/conteúdos das células individualmente
-                    let cPos = document.getElementById(`cell-pos-${num}`);
-                    let cName = document.getElementById(`cell-name-${num}`);
-                    let cTeam = document.getElementById(`cell-team-${num}`);
-                    let cNum = document.getElementById(`cell-num-${num}`);
-                    let cTime = document.getElementById(`cell-time-${num}`);
-                    let cGap = document.getElementById(`cell-gap-${num}`);
-                    let cInterval = document.getElementById(`cell-interval-${num}`);
-                    let cTyre = document.getElementById(`cell-tyre-${num}`);
-                    let cLap = document.getElementById(`cell-lap-${num}`);
+                    table_data = []
+                    for driver in drivers_res:
+                        d_num = driver.get("driver_number")
+                        acronym = driver.get("name_acronym", str(d_num))
+                        team = driver.get("team_name", "Desconhecida")
+                        position = pos_map.get(d_num, 99)
+                        compound = tires_map.get(d_num, "N/A")
+                        
+                        comp_upper = compound.upper()
+                        if "SOFT" in comp_upper:
+                            tyre_letter, tyre_class = "S", "tyre-soft"
+                        elif "MEDIUM" in comp_upper:
+                            tyre_letter, tyre_class = "M", "tyre-medium"
+                        elif "HARD" in comp_upper:
+                            tyre_letter, tyre_class = "H", "tyre-hard"
+                        else:
+                            tyre_letter, tyre_class = "-", "tyre-unknown"
+                        
+                        table_data.append({
+                            "Pos": position,
+                            "Nº": d_num,
+                            "Piloto": acronym,
+                            "Equipe": team,
+                            "Pneu": tyre_letter,
+                            "TyreClass": tyre_class,
+                            "Intervalo": interval_map.get(d_num, "LEADER" if position == 1 else "-"),
+                            "Gap": gap_map.get(d_num, "LEADER" if position == 1 else "-"),
+                            "Melhor Volta": best_lap_map.get(d_num, "-"),
+                            "InPit": d_num in in_pit_drivers
+                        })
+                    
+                    df_display = pd.DataFrame(table_data)
+                    df_display = df_display.sort_values(by="Pos").reset_index(drop=True)
+                    
+                    st.markdown('<div class="timing-container">', unsafe_allow_html=True)
+                    for _, row in df_display.iterrows():
+                        pos = row["Pos"]
+                        d_num = row["Nº"]
+                        pos_class = "timing-pos-1" if pos == 1 else ("timing-pos-2" if pos == 2 or pos == 3 else "")
+                        pilot = row["Piloto"]
+                        team = row["Equipe"]
+                        tyre = row["Pneu"]
+                        t_class = row["TyreClass"]
+                        lap_time = row["Melhor Volta"]
+                        in_pit = row["InPit"]
+                        
+                        time_display = row["Intervalo"] if is_interval else row["Gap"]
+                        if pos == 1 and "Race" in raw_session_name:
+                            time_display = "LEADER"
 
-                    if (cPos) cPos.innerHTML = `<b>P${pos}</b>`;
-                    if (cName) {
-                        cName.style.borderLeftColor = dInfo.color;
-                        cName.innerHTML = `${dInfo.name} ${fastestBadge} ${winnerBadge} ${pitBadge} ${outBadge}`;
-                    }
-                    if (cTeam) cTeam.innerHTML = teamShield;
-                    if (cNum) cNum.innerText = `#${num}`;
-                    if (cTime) cTime.innerHTML = `<span style="color:#facc15; font-weight:bold;">${formattedTime}</span>`;
-                    if (cGap) cGap.innerHTML = `<span style="color:#f87171; font-weight:bold;">${gapInfo.gap}</span>`;
-                    if (cInterval) cInterval.innerHTML = `<span style="color:#38bdf8;">${gapInfo.interval}</span>`;
-                    if (cTyre) cTyre.innerHTML = tyreBadgeHtml;
-                    if (cLap) cLap.innerHTML = `<b>${dLap}</b>`;
-                }
+                        is_fastest_overall = (d_num == overall_fastest_driver)
+                        time_prefix = "⏱️ " if is_fastest_overall else ""
+                        time_style = "color: #a855f7; font-weight: 800;" if is_fastest_overall else "color: #f1f5f9;"
+
+                        ms_html = '<span class="mini-sector ms-green"></span><span class="mini-sector ms-purple"></span><span class="mini-sector ms-green"></span>'
+                        pit_html = '<div class="pit-badge">PIT</div>' if in_pit else ''
+
+                        row_html = f'<div class="timing-row {pos_class}"><div class="timing-left">{pit_html}<div style="display: flex; flex-direction: column; align-items: center;"><div class="timing-pos">{pos}</div><div style="font-size: 0.6rem; color: #38bdf8; margin-top: 2px; font-weight: 600;">{time_display}</div></div><div><div style="display: flex; align-items: center;"><span class="timing-driver">{pilot}</span></div><div class="timing-team">{team}</div></div></div><div style="display:flex; align-items:center; gap:6px;">{ms_html}</div><div class="timing-right"><div style="text-align: right;"><div class="timing-time" style="{time_style}">{time_prefix}{lap_time}</div></div><span class="tyre-badge {t_class}">{tyre}</span></div></div>'
+                        
+                        st.markdown(row_html, unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                else:
+                    st.info("Aguardando dados dos pilotos...")
+            except Exception as e:
+                st.error(f"Erro ao processar telemetria: {e}")
+        else:
+            st.info("Conecte a uma sessão válida.")
+
+elif menu == "🏆 Classificação do Campeonato":
+    st.title("🏆 Classificação do Campeonato Mundial")
+    
+    tab1, tab2 = st.tabs(["Pilotos", "Construtores"])
+    
+    with tab1:
+        st.subheader("Mundial de Pilotos")
+        try:
+            res = requests.get("https://api.jolpi.ca/ergast/f1/current/driverStandings.json")
+            data = res.json()
+            standings_list = data["MRData"]["StandingsTable"]["StandingsLists"][0]["DriverStandings"]
+            
+            for item in standings_list:
+                pos = int(item["position"])
+                card_class = f"podium-{pos}" if pos <= 3 else "standard-card"
+                driver_name = f"{item['Driver']['givenName']} {item['Driver']['familyName']}"
+                nationality = item['Driver'].get('nationality', '')
+                flag = get_driver_flag(nationality)
+                team_name = item["Constructors"][0]["name"]
+                badge = get_team_badge(team_name)
+                points = item["points"]
+                wins = item["wins"]
                 
-                // Reordena a linha na tabela suavemente sem recriar
-                tbody.appendChild(row);
-            });
+                card_html = f'<div class="f1-card {card_class}"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="display: flex; align-items: center; gap: 15px;"><span style="font-size: 1.5rem; font-weight: 900; color: {"#ffd700" if pos==1 else "#c0c0c0" if pos==2 else "#cd7f32" if pos==3 else "#ffffff"};">#{pos}</span><div><h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{flag} {driver_name}</h3><p style="margin: 2px 0 0 0; font-size: 0.85rem; color: #94a3b8;">{badge} {team_name}</p></div></div><div style="text-align: right; display: flex; gap: 15px; align-items: center;"><div><div class="metric-label">Vitórias</div><div style="font-weight: 700; color: #e2e8f0;">{wins}</div></div><div style="background: #1f2a3a; padding: 8px 16px; border-radius: 8px; text-align: center;"><div class="metric-label">Pontos</div><div class="metric-value" style="color: #e10600;">{points}</div></div></div></div></div>'
+                st.markdown(card_html, unsafe_allow_html=True)
+        except Exception:
+            st.info("Carregando classificação de pilotos...")
+            
+    with tab2:
+        st.subheader("Mundial de Construtores")
+        try:
+            res = requests.get("https://api.jolpi.ca/ergast/f1/current/constructorStandings.json")
+            data = res.json()
+            standings_list = data["MRData"]["StandingsTable"]["StandingsLists"][0]["ConstructorStandings"]
+            
+            for item in standings_list:
+                pos = int(item["position"])
+                card_class = f"podium-{pos}" if pos <= 3 else "standard-card"
+                team_name = item["Constructor"]["name"]
+                badge = get_team_badge(team_name)
+                points = item["points"]
+                wins = item["wins"]
+                
+                card_html = f'<div class="f1-card {card_class}"><div style="display: flex; justify-content: space-between; align-items: center;"><div style="display: flex; align-items: center; gap: 15px;"><span style="font-size: 1.5rem; font-weight: 900; color: {"#ffd700" if pos==1 else "#c0c0c0" if pos==2 else "#cd7f32" if pos==3 else "#ffffff"};">#{pos}</span><div><h3 style="margin: 0; font-size: 1.1rem; color: #ffffff;">{badge} {team_name}</h3></div></div><div style="text-align: right; display: flex; gap: 15px; align-items: center;"><div><div class="metric-label">Vitórias</div><div style="font-weight: 700; color: #e2e8f0;">{wins}</div></div><div style="background: #1f2a3a; padding: 8px 16px; border-radius: 8px; text-align: center;"><div class="metric-label">Pontos</div><div class="metric-value" style="color: #e10600;">{points}</div></div></div></div></div>'
+                st.markdown(card_html, unsafe_allow_html=True)
+        except Exception:
+            st.info("Carregando classificação de construtores...")
 
-            let canvas = document.getElementById('trackCanvas');
-            if (canvas) {
-                let ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                let xCoords = locData.map(l => l.x);
-                let yCoords = locData.map(l => l.y);
-                if (xCoords.length > 0) {
-                    let minX = Math.min(...xCoords), maxX = Math.max(...xCoords);
-                    let minY = Math.min(...yCoords), maxY = Math.max(...yCoords);
-
-                    ctx.strokeStyle = '#334155';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    let first = true;
-                    locData.forEach(l => {
-                        let cx = ((l.x - minX) / (maxX - minX || 1)) * 620 + 40;
-                        let cy = ((l.y - minY) / (maxY - minY || 1)) * 300 + 30;
-                        if (first) { ctx.moveTo(cx, cy); first = false; } else { ctx.lineTo(cx, cy); }
-                    });
-                    ctx.stroke();
-
-                    let latestLocs = {};
-                    locData.forEach(l => { latestLocs[l.driver_number] = l; });
-
-                    Object.keys(latestLocs).forEach(num => {
-                        let l = latestLocs[num];
-                        let dInfo = driverMap[num] || { color: '#facc15' };
-                        let cx = ((l.x - minX) / (maxX - minX || 1)) * 620 + 40;
-                        let cy = ((l.y - minY) / (maxY - minY || 1)) * 300 + 30;
-
-                        ctx.beginPath();
-                        ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
-                        ctx.fillStyle = dInfo.color;
-                        ctx.fill();
-                        ctx.lineWidth = 1;
-                        ctx.strokeStyle = '#fff';
-                        ctx.stroke();
-
-                        ctx.fillStyle = '#fff';
-                        ctx.font = '9px sans-serif';
-                        ctx.fillText(num, cx + 7, cy + 3);
-                    });
-                } else {
-                    ctx.fillStyle = '#f87171';
-                    ctx.font = '13px sans-serif';
-                    ctx.fillText("Aguardando telemetria ativa para desenhar o circuito...", 180, 185);
-                }
-            }
-        }
-
-        async function fetchStandings() {
-            try {
-                let resD = await safeFetch('https://api.jolpi.ca/ergast/f1/current/driverStandings.json');
-                let dStandings = resD.MRData?.StandingsTable?.StandingsLists[0]?.DriverStandings || [];
-
-                let resC = await safeFetch('https://api.jolpi.ca/ergast/f1/current/constructorStandings.json');
-                let cStandings = resC.MRData?.StandingsTable?.StandingsLists[0]?.ConstructorStandings || [];
-
-                document.getElementById('currentGpName').innerText = "Temporada Atual";
-                document.getElementById('sessionTypeBadge').innerText = "Campeonato Geral";
-                document.getElementById('sessionDetailsBadge').innerText = "Tabela Oficial";
-                document.getElementById('raceControlAlert').style.display = 'none';
-
-                let html = `
-                    <div class="card">
-                        <h3 style="color:#f87171; margin-top:0; margin-bottom:8px; font-size:15px;">🏆 Campeonato de Pilotos</h3>
-                        <table class="standings-table">
-                            <thead>
-                                <tr><th>Pos</th><th>Piloto</th><th>Equipe</th><th>Pontos</th><th>Vitórias</th></tr>
-                            </thead>
-                            <tbody>
-                `;
-                dStandings.forEach(ds => {
-                    let team = ds.Constructors[0] ? ds.Constructors[0].name : '';
-                    html += `
-                        <tr>
-                            <td><b>${ds.position}</b></td>
-                            <td>${ds.Driver.givenName} ${ds.Driver.familyName}</td>
-                            <td>${team}</td>
-                            <td><b>${ds.points}</b></td>
-                            <td>${ds.wins}</td>
-                        </tr>
-                    `;
-                });
-                html += `</tbody></table></div>`;
-
-                html += `
-                    <div class="card">
-                        <h3 style="color:#f87171; margin-top:0; margin-bottom:8px; font-size:15px;">🛠️ Campeonato de Construtores</h3>
-                        <table class="standings-table">
-                            <thead>
-                                <tr><th>Pos</th><th>Construtor</th><th>Nacionalidade</th><th>Pontos</th><th>Vitórias</th></tr>
-                            </thead>
-                            <tbody>
-                `;
-                cStandings.forEach(cs => {
-                    html += `
-                        <tr>
-                            <td><b>${cs.position}</b></td>
-                            <td>${cs.Constructor.name}</td>
-                            <td>${cs.Constructor.nationality}</td>
-                            <td><b>${cs.points}</b></td>
-                            <td>${cs.wins}</td>
-                        </tr>
-                    `;
-                });
-                html += `</tbody></table></div>`;
-
-                document.getElementById('mainContainer').innerHTML = html;
-            } catch(e) {
-                document.getElementById('mainContainer').innerHTML = "<div style='text-align:center; color:#94a3b8; padding:20px;'>Erro ao carregar a classificação do campeonato.</div>";
-            }
-        }
-
-        async function fetchCalendar() {
-            try {
-                let res = await safeFetch('https://api.jolpi.ca/ergast/f1/current.json');
-                let races = res.MRData?.RaceTable?.Races || [];
-                document.getElementById('currentGpName').innerText = "Calendário " + (res.MRData?.season || '');
-                document.getElementById('sessionTypeBadge').innerText = "Temporada Regular";
-                document.getElementById('sessionDetailsBadge').innerText = "Etapas";
-                document.getElementById('raceControlAlert').style.display = 'none';
-
-                let html = `
-                    <div class="card">
-                        <h3 style="color:#f87171; margin-top:0; margin-bottom:8px; font-size:15px;">📅 Calendário da Temporada F1</h3>
-                        <table class="standings-table">
-                            <thead>
-                                <tr><th>Etapa</th><th>Nome do GP</th><th>Circuito</th><th>Data</th></tr>
-                            </thead>
-                            <tbody>
-                `;
-                races.forEach(r => {
-                    html += `
-                        <tr>
-                            <td><b>R${r.round}</b></td>
-                            <td>${r.raceName}</td>
-                            <td>${r.Circuit.circuitName} (${r.Circuit.Location.locality}, ${r.Circuit.Location.country})</td>
-                            <td>${r.date}</td>
-                        </tr>
-                    `;
-                });
-                html += `</tbody></table></div>`;
-                document.getElementById('mainContainer').innerHTML = html;
-            } catch(e) {
-                document.getElementById('mainContainer').innerHTML = "<div style='text-align:center; color:#94a3b8; padding:20px;'>Erro ao carregar o calendário.</div>";
-            }
-        }
-
-        loadData();
-    </script>
-</body>
-</html>
-"""
-
-str_lit.components.v1.html(f1_dashboard_html, height=850, scrolling=True)
+elif menu == "📅 Próximos GPs (Calendário)":
+    st.title("📅 Calendário de Grandes Prêmios")
+    try:
+        res = requests.get("https://api.jolpi.ca/ergast/f1/current.json")
+        data = res.json()
+        races = data["MRData"]["RaceTable"]["Races"]
+        
+        cols = st.columns(2)
+        for idx, race in enumerate(races):
+            round_num = race["round"]
+            race_name = race["raceName"]
+            circuit = race["Circuit"]["circuitName"]
+            country = race["Circuit"]["Location"]["country"]
+            date = race["date"]
+            
+            card_html = f'<div class="f1-card standard-card"><div style="display: flex; justify-content: space-between; align-items: flex-start;"><div><span class="badge-pill">Etapa {round_num}</span><h3 style="margin: 8px 0 4px 0; font-size: 1.05rem; color: #ffffff;">🏁 {race_name}</h3><p style="margin: 0; font-size: 0.85rem; color: #94a3b8;">📍 {circuit} ({country})</p></div><div style="text-align: right;"><div class="metric-label">Data</div><div style="font-weight: 700; color: #e2e8f0; font-size: 0.95rem;">📅 {date}</div></div></div></div>'
+            cols[idx % 2].markdown(card_html, unsafe_allow_html=True)
+            
+    except Exception:
+        st.info("Carregando calendário de GPs...")
