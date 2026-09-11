@@ -6,32 +6,29 @@ import pandas as pd
 st.set_page_config(page_title="F1 Dashboard", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("<h1 style='text-align: center; color: #FF1801; margin-bottom: 5px;'>🏎️ F1 DASHBOARD TELEMETRIA</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #aaa; margin-top: 0px;'>Painel de Contingência — Proteção contra quedas de API</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #aaa; margin-top: 0px;'>Painel Profissional — Nomes de Pilotos Automáticos Ativados</p>", unsafe_allow_html=True)
 
 # 1. BUSCA AS SESSÕES (Filtro seguro direto no Python)
 @st.cache_data(ttl=120)
 def carregar_gps():
     try:
-        url = "https://api.openf1.org/v1/sessions"
+        url = "https://openf1.org"
         resposta = requests.get(url, timeout=5)
-        
-        # Garante que só vai ler se o servidor responder com sucesso (Status 200) e formato correto
         if resposta.status_code == 200 and "application/json" in resposta.headers.get("Content-Type", ""):
             r = resposta.json()
             opcoes = {}
             for s in r[::-1]:
                 ano = s.get('year')
-                # Bloqueia as sessões vazias planejadas para 2026, focando em dados reais históricos
-                if ano and int(ano) < 2026:
+                # Filtra sessões válidas passadas ou do campeonato atual
+                if ano and int(ano) <= 2026:
                     nome = f"📍 {s.get('location')} ({ano}) - {s.get('session_name')}"
-                    if nome not in opcoes and len(opcoes) < 25:
+                    if nome not in opcoes and len(opcoes) < 30:
                         opcoes[nome] = str(s.get('session_key'))
             if opcoes:
                 return opcoes
     except:
         pass
-    # Backup estável de segurança caso o servidor OpenF1 esteja offline
-    return {"📍 Monaco (2024) - Race": "9523", "📍 Spa-Francorchamps (2024) - Race": "9549"}
+    return {"📍 São Paulo - Race": "9869"}
 
 dicionario_gps = carregar_gps()
 selecionado = st.selectbox("🏁 Escolha o Grande Prêmio:", list(dicionario_gps.keys()))
@@ -43,24 +40,32 @@ if st.button("🔄 Forçar Atualização do Sinal"):
 
 st.markdown("---")
 
-# Mapeamento dos pilotos reais do grid
-drivers_map = {
-    1: "Max VERSTAPPEN (Red Bull)", 11: "Sergio PEREZ (Red Bull)", 
-    16: "Charles LECLERC (Ferrari)", 55: "Carlos SAINZ (Ferrari)",
-    44: "Lewis HAMILTON (Mercedes)", 63: "George RUSSELL (Mercedes)", 
-    4: "Lando NORRIS (McLaren)", 81: "Oscar PIASTRI (McLaren)",
-    14: "Fernando ALONSO (Aston Martin)", 18: "Lance STROLL (Aston Martin)", 
-    10: "Pierre GASLY (Alpine)", 31: "Esteban OCON (Alpine)",
-    23: "Alex ALBON (Williams)", 22: "Yuki TSUNODA (RB)", 
-    27: "Nico HULKENBERG (Haas)"
-}
+# 2. FUNÇÃO DEDICADA PARA BUSCAR OS NOMES REAIS DOS PILOTOS NA API
+@st.cache_data(ttl=300)
+def buscar_nomes_pilotos(session_key):
+    mapeamento = {}
+    try:
+        url = f"https://openf1.org{session_key}"
+        resposta = requests.get(url, timeout=5).json()
+        for d in resposta:
+            num = d.get('driver_number')
+            nome_completo = d.get('full_name', f"Piloto #{num}")
+            equipe = d.get('team_name', '')
+            # Monta o texto amigável: Ex: "Lewis HAMILTON (Mercedes)"
+            mapeamento[num] = f"{nome_completo} ({equipe})" if equipe else nome_completo
+    except:
+        pass
+    return mapeamento
 
-# 2. REQUISIÇÃO PROTEGIDA CONTRA ERROS
+# 3. REQUISIÇÃO PROTEGIDA CONTRA ERROS
 try:
     dados_status = None
     dados_grid = None
     
     with st.spinner("Conectando com o centro de dados da F1..."):
+        # Puxa o mapeamento automático de pilotos para esta corrida específica
+        drivers_map = buscar_nomes_pilotos(id_sessao)
+
         # Requisição segura de Status da pista
         url_status = "https://openf1.org"
         res_status = requests.get(url_status, params={"session_key": id_sessao}, timeout=5)
@@ -68,7 +73,7 @@ try:
             dados_status = res_status.json()
         
         # Requisição segura dos Intervalos de grid
-        url_grid = "https://api.openf1.org/v1/intervals"
+        url_grid = "https://openf1.org"
         res_grid = requests.get(url_grid, params={"session_key": id_sessao}, timeout=5)
         if res_grid.status_code == 200 and "application/json" in res_grid.headers.get("Content-Type", ""):
             dados_grid = res_grid.json()
@@ -85,7 +90,7 @@ try:
             elif ultima_bandeira == "GREEN": st.success("🟢 BANDEIRA VERDE (Pista Livre)")
             else: st.info(f"⚪ STATUS: {ultima_bandeira}")
         else:
-            st.info("⚪ STATUS: SINAL INSTÁVEL / SEM INCIDENTES")
+            st.info("⚪ STATUS: PISTA LIMPA / SEM INCIDENTES")
 
     with col2:
         st.subheader("⚡ LINK DA CORRIDA")
@@ -97,6 +102,8 @@ try:
     if dados_grid and len(dados_grid) > 0:
         df_bruto = pd.DataFrame(dados_grid)
         df_ultimos = df_bruto.sort_values('date').groupby('driver_number').last().reset_index()
+        
+        # Procura o nome automático; se não achar no banco, mantém o número padrão de segurança
         df_ultimos['Piloto'] = df_ultimos['driver_number'].map(drivers_map).fillna(df_ultimos['driver_number'].apply(lambda x: f"Piloto #{x}"))
         
         df_ultimos['gap_num'] = pd.to_numeric(df_ultimos['gap_to_leader'], errors='coerce').fillna(0)
@@ -111,8 +118,7 @@ try:
         tabela_exibicao.index = tabela_exibicao.index + 1
         st.dataframe(tabela_exibicao, use_container_width=True)
     else:
-        # Se o endpoint de intervalos falhar, avisa sem derrubar o app
-        st.warning("⚠️ Servidor OpenF1 instável ou sem dados de voltas salvos para este circuito no momento. Tente trocar de GP ou clicar em 'Forçar Atualização'.")
+        st.warning("⚠️ Servidor sem dados de voltas salvos para este circuito no momento.")
 
 except Exception as e:
-    st.error("📡 O servidor oficial da F1 recusou o pacote de telemetria por excesso de tráfego. Por favor, toque no botão 'Forçar Atualização' acima.")
+    st.error("📡 Ocorreu um erro temporário de comunicação. Clique no botão de atualização acima.")
